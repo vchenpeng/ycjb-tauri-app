@@ -1,12 +1,13 @@
 import { ref, computed } from 'vue'
 import * as bridge from './bridge'
 import player from './player'
+import * as webdriver from './webdriver'
 import { useVoicePacketStoreWithout } from '@/store/index'
 
 const voicePacketStore = useVoicePacketStoreWithout()
 const pkg = computed(() => voicePacketStore.pkg)
 
-export { bridge, player }
+export { bridge, player, webdriver }
 export function speek (text) {
   let msg = new SpeechSynthesisUtterance()
   msg.text = text // 待合成文字

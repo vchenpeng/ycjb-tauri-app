@@ -18,6 +18,7 @@ tauri = { version = "1.2", features = ["api-all"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 anyhow = "1"
+sysinfo = { version = "0.29.10" }
 machine-uid = "0.3.0"
 tauri-plugin-store = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "dev" }
 # features or "postgres", or "mysql"
@@ -26,6 +27,7 @@ tauri-plugin-websocket = { git = "https://github.com/tauri-apps/plugins-workspac
 # headless_chrome = { git = "https://github.com/atroche/rust-headless-chrome", features = ["fetch"] }
 headless_chrome = { git = "https://github.com/vchenpeng/rust-headless-chrome", features = ["fetch"] }
 tokio= {version="1.15.0",features = ["full"] }
+lazy_static = "1.4.0"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem

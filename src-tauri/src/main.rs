@@ -3,6 +3,7 @@
 
 extern crate machine_uid;
 mod webdriver;
+use sysinfo::{ProcessExt, System, SystemExt};
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]

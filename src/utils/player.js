@@ -1,6 +1,6 @@
 import { Howl, Howler } from 'howler'
 import { SDK } from '@/sdk'
-
+console.log(Howler)
 let PLAYER_LOCK = false
 const Player = function () {
   this.key = +new Date()
@@ -61,7 +61,7 @@ Player.prototype = {
       sound = data.howl = new Howl({
         // autoplay: true,
         src: [data.file],
-        // html5: true, // Force to HTML5 so that the audio can stream in (best for large files).
+        html5: true, // Force to HTML5 so that the audio can stream in (best for large files).
         onplay: function () {
 
         },
@@ -70,8 +70,8 @@ Player.prototype = {
         },
         onend: async function () {
           if (self.index + 1 < self.playlist.length) {
-            // sound._html5 === false && await self.wait(self.interval)
-            await self.wait(self.interval)
+            sound._html5 === false && await self.wait(self.interval)
+            // await self.wait(self.interval)
             self.skip('next')
           } else {
             clearTimeout(self.timer)

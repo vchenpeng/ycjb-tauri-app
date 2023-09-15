@@ -2,6 +2,7 @@ use tauri::{
   plugin::{Builder, TauriPlugin},
   AppHandle, Manager, Runtime, State,
 };
+use lazy_static::lazy_static;
 use anyhow::{anyhow, Result};
 use std::error::Error;
 
@@ -15,6 +16,7 @@ use std::sync::Arc;
 use std::path::PathBuf;
 use tokio::time::{sleep, Duration,Instant};
 use serde::{Serialize, Deserialize};
+use sysinfo::{Pid,PidExt, ProcessExt, System, SystemExt, ProcessStatus};
 
 use Target::{CreateTarget, SetDiscoverTargets};
 
@@ -26,16 +28,21 @@ struct MyState {}
 type WrappedState = Mutex<Option<Driver>>;
 
 static DRIVER: OnceLock<Driver> = OnceLock::new();
+lazy_static!{
+	// static ref LOCAL_DRIVER: Driver = {
+	// 	let driver = Driver::new();
+	// 	driver
+	// };
+}
 fn get_driver() -> &'static Driver {
 	DRIVER.get().unwrap()
 }
 
 #[derive(Clone)]
 struct Driver {
-	process_id: Option<u32>,
-	launch_target_id: Option<String>,
-	browser: Browser,
-	// tabs: HashMap<String, Arc<Tab>>
+	 process_id: Option<u32>,
+	 launch_target_id: Option<String>,
+	 browser: Browser
 }
 
 // #[derive(Serilize, Deserialize, Debug)]
@@ -44,69 +51,76 @@ struct WebDriver {
 	target_id: String
 }
 
+fn create_browser() -> Result<Driver> {
+	let default_launch_options = LaunchOptions::default_builder()
+					.path(Some(default_executable().unwrap()))
+					.build()
+					.unwrap();
+	const CHROME_ARGS: [&str; 1] = [
+		// "-profile-directory=Default",
+		// "--disable-background-networking",
+		// "--enable-features=NetworkService,NetworkServiceInProcess",
+		// "--disable-background-timer-throttling",
+		// "--disable-backgrounding-occluded-windows",
+		// "--disable-breakpad",
+		// "--disable-client-side-phishing-detection",
+		// "--disable-component-extensions-with-background-pages",
+		// "--disable-default-apps",
+		// "--disable-dev-shm-usage",
+		// "--disable-extensions",
+		// // BlinkGenPropertyTrees disabled due to crbug.com/937609
+		// "--disable-features=TranslateUI,BlinkGenPropertyTrees",
+		// "--disable-hang-monitor",
+		// "--disable-ipc-flooding-protection",
+		// "--disable-popup-blocking",
+		// "--disable-prompt-on-repost",
+		// "--disable-renderer-backgrounding",
+		// "--disable-sync",
+		// "--force-color-profile=srgb",
+		// "--metrics-recording-only",
+		"--no-first-run",
+		// // "--enable-automation",
+		// "--password-store=basic",
+		// "--use-mock-keychain"
+	];
+	// let path = PathBuf::from(r"/Users/chenpeng/Library/Application Support/Google/Chrome");
+	let launch_options = LaunchOptions {
+			headless: false,
+			sandbox: true,
+			// enable_gpu: true,
+			// user_data_dir: Some(path).clone(),
+			// port: Some(9333),
+			ignore_certificate_errors: false,
+			disable_default_args: true,
+			args: CHROME_ARGS.iter().map(|x| std::ffi::OsStr::new(x)).collect(),
+			..default_launch_options
+	};
+	// dbg!(&launch_options);
+
+	// let browser = Browser::new(launch_options).unwrap();
+	let browser = Browser::new(launch_options).unwrap();
+	let first_tab = browser.wait_for_initial_tab()?;
+	let launch_target_id = first_tab.get_target_id().to_string();
+	println!("启动 {:?}", launch_target_id);
+	let driver = Driver {
+		process_id: browser.get_process_id(),
+		launch_target_id: Some(launch_target_id),
+		browser: browser
+	};
+	Ok(driver)
+}
+
 impl Driver {
 	pub fn new() -> Result<Self> {
-		Self::create_browser()
+		create_browser()
 	}
 
-	fn create_browser() -> Result<Self> {
-		let default_launch_options = LaunchOptions::default_builder()
-            .path(Some(default_executable().unwrap()))
-            .build()
-						.unwrap();
-		const CHROME_ARGS: [&str; 0] = [
-			// "-profile-directory=Default",
-			// "--disable-background-networking",
-			// "--enable-features=NetworkService,NetworkServiceInProcess",
-			// "--disable-background-timer-throttling",
-			// "--disable-backgrounding-occluded-windows",
-			// "--disable-breakpad",
-			// "--disable-client-side-phishing-detection",
-			// "--disable-component-extensions-with-background-pages",
-			// "--disable-default-apps",
-			// "--disable-dev-shm-usage",
-			// "--disable-extensions",
-			// // BlinkGenPropertyTrees disabled due to crbug.com/937609
-			// "--disable-features=TranslateUI,BlinkGenPropertyTrees",
-			// "--disable-hang-monitor",
-			// "--disable-ipc-flooding-protection",
-			// "--disable-popup-blocking",
-			// "--disable-prompt-on-repost",
-			// "--disable-renderer-backgrounding",
-			// "--disable-sync",
-			// "--force-color-profile=srgb",
-			// "--metrics-recording-only",
-			// "--no-first-run",
-			// // "--enable-automation",
-			// "--password-store=basic",
-			// "--use-mock-keychain"
-		];
-		// let path = PathBuf::from(r"/Users/chenpeng/Library/Application Support/Google/Chrome");
-		let launch_options = LaunchOptions {
-				headless: false,
-				sandbox: true,
-				// enable_gpu: true,
-				// user_data_dir: Some(path).clone(),
-				// port: Some(9333),
-				ignore_certificate_errors: false,
-				disable_default_args: true,
-				args: CHROME_ARGS.iter().map(|x| std::ffi::OsStr::new(x)).collect(),
-				..default_launch_options
-		};
-		// dbg!(&launch_options);
-
-		// let browser = Browser::new(launch_options).unwrap();
-		let browser = Browser::new(launch_options)?;
-		let first_tab = browser.wait_for_initial_tab()?;
-		let launch_target_id = first_tab.get_target_id().to_string();
-		println!("启动 {:?}", launch_target_id);
-		let driver = Driver {
-			process_id: browser.get_process_id(),
-			launch_target_id: Some(launch_target_id),
-			browser: browser,
-			// tabs: browser_tabs
-		};
-		Ok(driver)
+	fn reinit(self: &Self) {
+		let driver = create_browser().unwrap();
+		// Self = driver;
+		// self.process_id = driver.process_id;
+		// self.launch_target_id = driver.launch_target_id;
+		// self.browser = driver.browser
 	}
 }
 
@@ -130,17 +144,33 @@ fn do_something<R: Runtime>(_app: AppHandle<R>, state: State<'_, MyState>) {
 // }
 #[tauri::command(async)]
 // #[tokio::main]
-fn launch(state: State<WrappedState>) -> String {
-	println!("launch");
-	let driver = Driver::new().unwrap();
-	// array().lock().unwrap().push(1);
+fn launch(state: State<WrappedState>) -> (u32, String) {
+	// println!("launch t {:?}", LOCAL_DRIVER.launch_target_id);
+	// println!("launch p {:?}", LOCAL_DRIVER.process_id);
+	
+	let t = DRIVER.get();
+	if t.is_none() {
+		let mut driver:Driver = (Driver::new().unwrap());
 
-	DRIVER.get_or_init(|| driver);
+		DRIVER.get_or_init(|| driver);
+		let launch_target_id = DRIVER.get().unwrap().launch_target_id.clone().unwrap();
+		let process_id = DRIVER.get().unwrap().process_id.clone().unwrap();
+		// Ok(launch_target_id)
+		println!("process_id {:?}", process_id as i32);
+		// println!("launch_target_id {:?}", launch_target_id);
+		// *state.lock().unwrap() = Some(driver);
+		return (process_id, launch_target_id);
+	} 
+	else {
+		let c = t.unwrap().clone();
+		if get_process_status(c.process_id.unwrap()) == "Unknown" {
+			println!("重新启动浏览器");
+			// c.reinit();
+		}
+	}
 	let launch_target_id = DRIVER.get().unwrap().launch_target_id.clone().unwrap();
-	// Ok(launch_target_id)
-	println!("launch_target_id {:?}", launch_target_id);
-	// *state.lock().unwrap() = Some(driver);
-	return launch_target_id;
+	let process_id = DRIVER.get().unwrap().process_id.clone().unwrap();
+	return (process_id, launch_target_id);
 }
 
 #[tauri::command(async)]
@@ -163,27 +193,23 @@ fn new_tab(state: State<WrappedState>, url: Option<&str>) -> String {
 
 #[tauri::command(async)]
 fn get_process_id(state: State<WrappedState>) -> Option<u32> {
-	if let Some(ref mut state) = *state.lock().unwrap()
-		{
-			state.browser.get_process_id()
-		}
-	else
-		{
-			None
-		}
+	get_driver().browser.get_process_id()
 }
 
 #[tauri::command(async)]
 fn get_tabs_count(state: State<WrappedState>) -> usize {
-	if let Some(ref mut state) = *state.lock().unwrap()
-		{
-			state.browser.get_tabs().lock().unwrap().len()
-		}
-	else
-		{
-			let index: i32 = 0;
-			index as usize
-		}
+	// if let Some(ref mut state) = *state.lock().unwrap()
+	// 	{
+	// 		state.browser.get_tabs().lock().unwrap().len()
+	// 	}
+	// else
+	// 	{
+	// 		let index: i32 = 0;
+	// 		index as usize
+	// 	}
+		let browser_tabs2 = get_lock_tabs_map();
+		let count = browser_tabs2.len();
+		return count;
 }
 
 fn get_lock_tabs() -> Vec<Arc<Tab>> {
@@ -228,7 +254,7 @@ fn get_tab_content(wstate: State<WrappedState>, tid: &str) -> Result<CustomRespo
 	{
 		Ok(CustomResponse {
 			success: true,
-			data: tab.unwrap().get_title().unwrap(),
+			data: tab.unwrap().get_content().unwrap(),
 			message: "".to_string()
 		})
 	}
@@ -239,6 +265,19 @@ fn get_tab_content(wstate: State<WrappedState>, tid: &str) -> Result<CustomRespo
 			data: "".to_string(),
 			message: "error".to_string()
 		})
+	}
+}
+
+#[tauri::command(async)]
+fn get_process_status(pid: u32) -> std::string::String {
+	let s = System::new_all();
+	if let Some(process) = s.process(Pid::from_u32(pid)) {
+		let status = process.status();
+		println!("status {:?}", status);
+		return status.to_string().into();
+	}
+	else {
+		return "Unknown".to_string();
 	}
 }
 
@@ -323,7 +362,7 @@ async fn new_tab_action() -> Result<Browser, Box<dyn Error>> {
 			..default_launch_options
 	};
 	// dbg!(&launch_options);
-	println!("启动 {:?}", Instant::now());
+	println!("启动webdriver {:?}", Instant::now());
 	let browser = Browser::new(launch_options)?;
 	// let id = browser.get_process_id();
 	let tab = browser.wait_for_initial_tab()?;
@@ -363,7 +402,7 @@ async fn new_tab_action() -> Result<Browser, Box<dyn Error>> {
 
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
   Builder::new("webdriver")
-    .invoke_handler(tauri::generate_handler![do_something, launch, new_tab, get_process_id, get_tabs_count,reload, get_tab_content])
+    .invoke_handler(tauri::generate_handler![do_something, launch, new_tab, get_process_id, get_tabs_count,reload, get_tab_content, get_process_status])
     .setup(|app_handle| {
       // setup plugin specific state here
 			app_handle.manage(Mutex::new(None::<Driver>));
