@@ -55,21 +55,35 @@ function doStart () {
 }
 
 let html = ref(null)
+
+let timer
 async function doOpenBrowser () {
-  // launchId = await invoke('plugin:webdriver|launch')
-  // webdriver.init()
+  clearInterval(timer)
   let [pid, tid] = await webdriver.launch()
-  // tid = await webdriver.newTab()
+
+  let tid2 = await webdriver.newTab()
   console.log('启动', pid, tid)
-  setInterval(() => {
-    // webdriver.getPageContent(tid).then((json) => {
-    //   console.log('1', json)
-    //   html.value = json
-    // }).catch((error) => {
-    //   console.error('1 err', error)
-    //   html.value = error
-    // })
-    // webdriver.reload(tid)
+
+  timer = setInterval(() => {
+    webdriver.getPageContent(tid).then((json) => {
+      // html.value = json
+      if (json.data === '' || !json.success) {
+        console.log('2', json)
+      }
+    }).catch((error) => {
+      console.error('1 err', error)
+      html.value = error
+    })
+    webdriver.getPageContent(tid2).then((json) => {
+      if (json.data === '' || !json.success) {
+        console.log('2', json)
+      }
+    }).catch((error) => {
+      console.error('1 err', error)
+      html.value = error
+    })
+    webdriver.reload(tid)
+    webdriver.reload(tid2)
     webdriver.getProcessStatus(pid).then((status) => {
       console.log('status', status)
     })
@@ -90,8 +104,8 @@ watch([orderSignal, total], ([w1, w2]) => {
 })
 
 onMounted(() => {
-  doStart()
-  startOrderTimer(6000)
+  // doStart()
+  // startOrderTimer(6000)
 })
 
 onBeforeUnmount(() => {
