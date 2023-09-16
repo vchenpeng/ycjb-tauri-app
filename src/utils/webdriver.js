@@ -34,6 +34,11 @@ export async function launch () {
   return tid
 }
 
+export async function getDebugWsUrl () {
+  const url = await invoke('plugin:webdriver|get_debug_ws_url')
+  return url
+}
+
 export async function getProcessStatus (pid) {
   const status = await invoke('plugin:webdriver|get_process_status', {
     pid

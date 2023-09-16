@@ -25,16 +25,9 @@ use std::sync::RwLock;
 
 #[derive(Default)]
 struct MyState {}
+type WrappedState = Mutex<Option<MyState>>;
 
-type WrappedState = Mutex<Option<Driver>>;
-
-static DRIVER: OnceLock<Driver> = OnceLock::new();
-static MY_DRIVER: Option<Driver> = None;
 lazy_static!{
-	static ref LOCAL_DRIVER: Driver = {
-		let driver = Driver::new().unwrap();
-		driver
-	};
 	static ref driver_lock: RwLock<Driver> = {
 		let driver = Driver::new().unwrap();
 		RwLock::new(driver)
@@ -105,8 +98,6 @@ fn create_browser() -> Result<Driver> {
 			..default_launch_options
 	};
 	// dbg!(&launch_options);
-
-	// let browser = Browser::new(launch_options).unwrap();
 	let browser = Browser::new(launch_options).unwrap();
 	let first_tab = browser.wait_for_initial_tab()?;
 	let launch_target_id = first_tab.get_target_id().to_string();
@@ -123,7 +114,6 @@ impl Driver {
 	pub fn new() -> Result<Self> {
 		create_browser()
 	}
-
 	fn reinit(self: &Self) {
 		let driver = create_browser().unwrap();
 		// Self = driver;
@@ -143,18 +133,9 @@ fn do_something<R: Runtime>(_app: AppHandle<R>, state: State<'_, MyState>) {
   // you can access `MyState` here!
 }
 
-// #[tauri::command]
-// fn launch(state: State<WrappedState>) -> Option<u32> {
-// 	println!("launch");
-// 	let driver = Driver::new().unwrap();
-// 	let process_id = driver.browser.get_process_id();
-// 	*state.lock().unwrap() = Some(driver);
-// 	return process_id;
-// }
 #[tauri::command(async)]
-// #[tokio::main]
 fn launch(state: State<WrappedState>) -> (u32, String) {
-	println!("启动浏览器");
+	
 	let mut process_id = 0;
 	let mut launch_target_id = "".to_string();
 	let mut driver = driver_lock.write().unwrap();
@@ -162,7 +143,6 @@ fn launch(state: State<WrappedState>) -> (u32, String) {
 		process_id = driver.process_id.unwrap();
 		launch_target_id = driver.launch_target_id.clone().unwrap();
 	}
-	
 	if get_process_status(process_id) == "Unknown" {
 		println!("重新启动浏览器");
 		// c.reinit();
@@ -175,17 +155,12 @@ fn launch(state: State<WrappedState>) -> (u32, String) {
 			process_id = driver.process_id.unwrap();
 		}
 	}
-	// DRIVER.get_or_init(|| driver);
-	
-	// let resultDriver = driver_lock.read().unwrap();
-	// {
+	else {
+		println!("启动浏览器");
+	}
 
-	// }
-	// let launch_target_id = resultDriver.launch_target_id.clone().unwrap();
-	// let process_id2 = resultDriver.process_id.unwrap();
-
-	println!("launch p {:?}", process_id);
-	println!("launch t {:?}", launch_target_id);
+	println!("launch process_id {:?}", process_id);
+	println!("launch launch_target_id {:?}", launch_target_id);
 	return (process_id, launch_target_id);
 }
 
@@ -202,9 +177,8 @@ fn new_tab(state: State<WrappedState>, url: Option<&str>) -> String {
 	};
 	let resultDriver = driver_lock.read().unwrap();
 	let tab = resultDriver.browser.new_tab_with_options(tab_in_context).unwrap();
-	// let tab = get_driver().browser.new_tab().unwrap();
 	let target_id = tab.get_target_id().to_string();
-	println!("tab {:?}", target_id);
+	println!("tab target_id {:?}", target_id);
 	return target_id;
 }
 
@@ -215,16 +189,21 @@ fn get_process_id(state: State<WrappedState>) -> Option<u32> {
 }
 
 #[tauri::command(async)]
+fn get_debug_ws_url(state: State<WrappedState>) -> String {
+	let driver = driver_lock.read().unwrap();
+	let process = driver.browser.get_process();
+	if process.is_none()
+	{
+		"".to_string()
+	}
+  else
+	{
+		process.unwrap().debug_ws_url.to_string()
+	}
+}
+
+#[tauri::command(async)]
 fn get_tabs_count(state: State<WrappedState>) -> usize {
-	// if let Some(ref mut state) = *state.lock().unwrap()
-	// 	{
-	// 		state.browser.get_tabs().lock().unwrap().len()
-	// 	}
-	// else
-	// 	{
-	// 		let index: i32 = 0;
-	// 		index as usize
-	// 	}
 		let browser_tabs2 = get_lock_tabs_map();
 		let count = browser_tabs2.len();
 		return count;
@@ -241,7 +220,6 @@ fn get_lock_tabs() -> Vec<Arc<Tab>> {
 			}
 		}
 	}
-	
 	tabs
 }
 
@@ -252,7 +230,6 @@ fn get_lock_tabs_map() -> HashMap<String, Arc<Tab>> {
 		let browser_tabs = driver.browser.get_tabs().lock().unwrap();
 		browser_tabs.iter().for_each(|tab| {
 			let target_id = tab.get_target_id().to_string();
-			// tab_map.insert(target_id, *tab);
 			tab_map.insert(target_id, Arc::clone(tab));
 		});
 	}
@@ -268,19 +245,27 @@ struct CustomResponse {
 
 #[tauri::command(async)]
 fn get_tab_content(wstate: State<WrappedState>, tid: &str) -> Result<CustomResponse, CustomResponse> {
-	// let dirver = get_driver();
-	// let browser_tabs = get_lock_tabs();
-	// let tab = browser_tabs.first();
 	let browser_tabs2 = get_lock_tabs_map();
-	// let browser_tabs2 = get_driver().tabs.clone();
 	let tab = browser_tabs2.get(tid);
 	if !tab.is_none()
 	{
-		Ok(CustomResponse {
-			success: true,
-			data: tab.unwrap().get_content().unwrap(),
-			message: "".to_string()
-		})
+		let content = tab.unwrap().get_content();
+		if content.is_ok()
+		{
+			Ok(CustomResponse {
+				success: true,
+				data: content.unwrap(),
+				message: "".to_string()
+			})
+		}
+		else
+		{
+			Ok(CustomResponse {
+				success: false,
+				data: "".to_string(),
+				message: "当前TAB不再活跃".to_string()
+			})
+		}
 	}
 	else
 	{
@@ -297,7 +282,7 @@ fn get_process_status(pid: u32) -> std::string::String {
 	let s = System::new_all();
 	if let Some(process) = s.process(Pid::from_u32(pid)) {
 		let status = process.status();
-		// println!("status {:?}", status);
+		println!("process status {:?}", status);
 		return status.to_string().into();
 	}
 	else {
@@ -307,16 +292,6 @@ fn get_process_status(pid: u32) -> std::string::String {
 
 #[tauri::command(async)]
 fn reload(state: State<WrappedState>, tid: &str) {
-	// let browser_tabs = get_driver().browser.get_tabs().lock().unwrap();
-	// let mut tabs = vec![];
-	// for tab in browser_tabs.iter() {
-	// 	if let target_id = tab.get_target_id().to_string() {
-	// 		if target_id == tid {
-	// 				tabs.push(Arc::clone(tab));
-	// 		}
-	// 	}
-	// }
-	// let tab = tabs.first();
 	let browser_tabs2 = get_lock_tabs_map();
 	let tab = browser_tabs2.get(tid);
 	if !tab.is_none()
@@ -325,111 +300,12 @@ fn reload(state: State<WrappedState>, tid: &str) {
 	}
 }
 
-// let num_tabs = browser.get_tabs().lock().unwrap().len();
-// #[tauri::command]
-// fn get_tabs(state: State<WrappedState>) -> Result<Arc<String>> {
-// 	let mut tabs = vec![];
-// 	if let Some(ref mut state) = *state.lock().unwrap() {
-// 		let browser_tabs = state.browser.get_tabs().lock().unwrap();
-// 		for tab in browser_tabs.iter() {
-// 				if let Some(context_id) = tab.get_browser_context_id()? {
-// 						if context_id == self.id {
-// 								tabs.push(Arc::clone(tab.id));
-// 						}
-// 				}
-// 		}
-// 		Ok(tabs)
-// 	}
-// }
-
-#[tokio::main]
-async fn new_tab_action() -> Result<Browser, Box<dyn Error>> {
-	let default_launch_options = LaunchOptions::default_builder()
-            .path(Some(default_executable()?))
-            .build()
-						.unwrap();
-	const CHROME_ARGS: [&str; 0] = [
-		// "--disable-background-networking",
-    // "--enable-features=NetworkService,NetworkServiceInProcess",
-    // "--disable-background-timer-throttling",
-    // "--disable-backgrounding-occluded-windows",
-    // "--disable-breakpad",
-    // "--disable-client-side-phishing-detection",
-    // "--disable-component-extensions-with-background-pages",
-    // "--disable-default-apps",
-    // "--disable-dev-shm-usage",
-    // "--disable-extensions",
-    // // BlinkGenPropertyTrees disabled due to crbug.com/937609
-    // "--disable-features=TranslateUI,BlinkGenPropertyTrees",
-    // "--disable-hang-monitor",
-    // "--disable-ipc-flooding-protection",
-    // "--disable-popup-blocking",
-    // "--disable-prompt-on-repost",
-    // "--disable-renderer-backgrounding",
-    // "--disable-sync",
-    // "--force-color-profile=srgb",
-    // "--metrics-recording-only",
-    // "--no-first-run",
-    // // "--enable-automation",
-    // "--password-store=basic",
-    // "--use-mock-keychain"
-	];
-	let launch_options = LaunchOptions {
-			headless: false,
-			sandbox: true,
-			// enable_gpu: true,
-			// user_data_dir: Some(path),
-			// port: Some(9333),
-			ignore_certificate_errors: false,
-			disable_default_args: true,
-			args: CHROME_ARGS.iter().map(|x| std::ffi::OsStr::new(x)).collect(),
-			..default_launch_options
-	};
-	// dbg!(&launch_options);
-	println!("启动webdriver {:?}", Instant::now());
-	let browser = Browser::new(launch_options)?;
-	// let id = browser.get_process_id();
-	let tab = browser.wait_for_initial_tab()?;
-	// let tab = browser.new_tab()?;
-
-	// let tabs = browser.get_tabs();
-	// let tab = browser.get_tabs().lock().unwrap().get(0).unwrap();
-
-	let newTab = browser.new_tab()?;
-	tab.close(false)?;
-	newTab.navigate_to("https://www.baidu.com")?;
-	// tab.navigate_to("about:blank")?;
-	// let closed = tab.close(true);
-	// tab.wait_until_navigated()?;
-	let result = newTab.get_title()?;
-  dbg!(&result);
-	// println!("Current {:?}");
-	let me = "World";
-	// println!("Current {:?}", Instant::now());
-	// let now = Instant::now();
-	// set_time_out(
-	// 		|| {
-	// 				let text = tab.get_title();
-	// 				println!("title {:?}", text);
-	// 		},
-	// 		Duration::from_secs(10),
-	// ).await;
-	// set_time_out(
-	// 		|| {
-	// 				println!("Current {:?}", Instant::now());
-	// 				println!("Hello {} ! --elapsed {:?}", me, now.elapsed());
-	// 		},
-	// 		Duration::from_secs(20000),
-	// ).await;
-	Ok(browser)
-}
-
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
   Builder::new("webdriver")
-    .invoke_handler(tauri::generate_handler![do_something, launch, new_tab, get_process_id, get_tabs_count,reload, get_tab_content, get_process_status])
+    .invoke_handler(tauri::generate_handler![do_something, launch, new_tab, get_process_id, get_tabs_count,reload, get_tab_content, get_process_status, get_debug_ws_url])
     .setup(|app_handle| {
       // setup plugin specific state here
-			app_handle.manage(Mutex::new(None::<Driver>));
+			app_handle.manage(Mutex::new(None::<MyState>));
       Ok(())
     })
     .build()

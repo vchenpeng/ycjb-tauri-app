@@ -90,6 +90,9 @@ async function doOpenBrowser () {
     webdriver.getTabsCount().then((count) => {
       console.log('tabs', count)
     })
+    webdriver.getDebugWsUrl().then((wsUrl) => {
+      console.log('wsUrl', wsUrl)
+    })
   }, 1000)
 }
 

@@ -25,7 +25,8 @@ tauri-plugin-store = { git = "https://github.com/tauri-apps/plugins-workspace", 
 tauri-plugin-sql = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1", features = ["sqlite"] }
 tauri-plugin-websocket = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 # headless_chrome = { git = "https://github.com/atroche/rust-headless-chrome", features = ["fetch"] }
-headless_chrome = { git = "https://github.com/vchenpeng/rust-headless-chrome", features = ["fetch"] }
+# headless_chrome = { version="1.0.6", git = "https://github.com/vchenpeng/rust-headless-chrome", branch="custom", features = ["fetch"] }
+headless_chrome = { path = "../../rust-headless-chrome", features = ["fetch"] }
 tokio= {version="1.15.0",features = ["full"] }
 lazy_static = "1.4.0"
 
