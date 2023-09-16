@@ -21,7 +21,7 @@ use sysinfo::{Pid,PidExt, ProcessExt, System, SystemExt, ProcessStatus};
 use Target::{CreateTarget, SetDiscoverTargets};
 
 use std::sync::{OnceLock};
-use std::sync::RwLock;
+use std::sync::{RwLock, RwLockReadGuard, LockResult};
 
 #[derive(Default)]
 struct MyState {}
@@ -38,14 +38,15 @@ lazy_static!{
 struct Driver {
 	 process_id: Option<u32>,
 	 launch_target_id: Option<String>,
+	 debug_ws_url: String,
 	 browser: Browser
 }
 
-// fn get_driver() -> Driver {
-// 	// DRIVER.get().unwrap()
-// 	// &LOCAL_DRIVER
-// 	driver_lock.read().unwrap()
-// }
+fn get_driver<'a>() -> RwLockReadGuard<'a, Driver> {
+	let mut driver = driver_lock.read().unwrap();
+	let debug_ws_url = driver.debug_ws_url.clone();
+	return driver;
+}
 
 // #[derive(Serilize, Deserialize, Debug)]
 struct WebDriver {
@@ -101,10 +102,12 @@ fn create_browser() -> Result<Driver> {
 	let browser = Browser::new(launch_options).unwrap();
 	let first_tab = browser.wait_for_initial_tab()?;
 	let launch_target_id = first_tab.get_target_id().to_string();
+	let process = browser.get_process().unwrap();
 	println!("启动 {:?}", launch_target_id);
 	let driver = Driver {
 		process_id: browser.get_process_id(),
 		launch_target_id: Some(launch_target_id),
+		debug_ws_url: process.debug_ws_url.to_string(),
 		browser: browser
 	};
 	Ok(driver)
@@ -145,9 +148,7 @@ fn launch(state: State<WrappedState>) -> (u32, String) {
 	}
 	if get_process_status(process_id) == "Unknown" {
 		println!("重新启动浏览器");
-		// c.reinit();
 		let newDriver = Driver::new().unwrap();
-		// let mut w = driver_lock.write().unwrap();
 		{
 			println!("获取写lock");
 			*driver = newDriver;
@@ -175,7 +176,7 @@ fn new_tab(state: State<WrappedState>, url: Option<&str>) -> String {
 		new_window: None,
 		background: None,
 	};
-	let resultDriver = driver_lock.read().unwrap();
+	let resultDriver = get_driver();
 	let tab = resultDriver.browser.new_tab_with_options(tab_in_context).unwrap();
 	let target_id = tab.get_target_id().to_string();
 	println!("tab target_id {:?}", target_id);
@@ -184,22 +185,14 @@ fn new_tab(state: State<WrappedState>, url: Option<&str>) -> String {
 
 #[tauri::command(async)]
 fn get_process_id(state: State<WrappedState>) -> Option<u32> {
-	let resultDriver = driver_lock.read().unwrap();
+	let resultDriver = get_driver();
 	resultDriver.browser.get_process_id()
 }
 
 #[tauri::command(async)]
-fn get_debug_ws_url(state: State<WrappedState>) -> String {
-	let driver = driver_lock.read().unwrap();
-	let process = driver.browser.get_process();
-	if process.is_none()
-	{
-		"".to_string()
-	}
-  else
-	{
-		process.unwrap().debug_ws_url.to_string()
-	}
+fn get_debug_ws_url() -> String {
+	let driver = get_driver();
+	return driver.debug_ws_url.clone();
 }
 
 #[tauri::command(async)]
@@ -211,7 +204,7 @@ fn get_tabs_count(state: State<WrappedState>) -> usize {
 
 fn get_lock_tabs() -> Vec<Arc<Tab>> {
 	let mut tabs = vec![];
-	let driver = driver_lock.read().unwrap();
+	let driver = get_driver();
 	{
 		let browser_tabs = driver.browser.get_tabs().lock().unwrap();
 		for tab in browser_tabs.iter() {
@@ -225,7 +218,7 @@ fn get_lock_tabs() -> Vec<Arc<Tab>> {
 
 fn get_lock_tabs_map() -> HashMap<String, Arc<Tab>> {
 	let mut tab_map = HashMap::new();
-	let driver = driver_lock.read().unwrap();
+	let driver = get_driver();
 	{
 		let browser_tabs = driver.browser.get_tabs().lock().unwrap();
 		browser_tabs.iter().for_each(|tab| {
@@ -282,7 +275,7 @@ fn get_process_status(pid: u32) -> std::string::String {
 	let s = System::new_all();
 	if let Some(process) = s.process(Pid::from_u32(pid)) {
 		let status = process.status();
-		println!("process status {:?}", status);
+		// println!("process status {:?}", status);
 		return status.to_string().into();
 	}
 	else {
