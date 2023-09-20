@@ -7,7 +7,7 @@ export async function getPageContent (tid) {
 }
 export async function newTab (url) {
   const tid = await invoke('plugin:webdriver|new_tab', {
-    url: 'https://www.hao123.com',
+    url: url
   })
   return tid
 }
@@ -37,6 +37,13 @@ export async function launch () {
 export async function getDebugWsUrl () {
   const url = await invoke('plugin:webdriver|get_debug_ws_url')
   return url
+}
+
+export async function getDebugConfig (port) {
+  const config = await invoke('plugin:webdriver|get_debug_config', {
+    port
+  })
+  return config
 }
 
 export async function getProcessStatus (pid) {

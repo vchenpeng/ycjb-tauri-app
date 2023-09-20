@@ -9,7 +9,6 @@ import { setupUpgrade } from './plugins'
 
 async function bootstrap () {
   const app = createApp(App)
-
   setupStore(app)
   setupRem()
   setupDebuger()

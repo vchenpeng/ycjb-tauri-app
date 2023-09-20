@@ -6,8 +6,8 @@ import OrderWorker from '@/workers/order?worker&inline'
 export function useOrder () {
   let { signal, init, switchSignal } = useOrderStoreWithout()
   window.$sdk = SDK
-  const worker = new OrderWorker()
-  console.log(333, worker)
+  // const worker = new OrderWorker()
+  // console.log(333, worker)
   let timer = null
   // TODO取出db内满足条件的所有
   function fetchRemoteOrders () {

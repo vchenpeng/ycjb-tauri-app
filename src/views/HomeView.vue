@@ -10,6 +10,78 @@ import { useTheme } from '@/hooks/useTheme.js'
 import { useVoicePacket } from '@/hooks/useVoicepacket.js'
 import SwitchTheme from '@/components/SwitchTheme.vue'
 import { webdriver } from '@/utils/index.js'
+import WS from "@tauri-apps/plugin-websocket"
+
+let ws
+let idSeed = 0
+async function runWs (url) {
+  console.log('ws url ~~', url)
+  ws = await WS.connect(url, {
+    url: url,
+    headers: []
+  })
+  console.log(ws)
+  ws.addListener(function (res) {
+    let isText = res['type'] === 'Text'
+    if (isText) {
+      console.log('log', JSON.parse(res.data))
+    } else {
+      console.error(res)
+    }
+  })
+}
+
+function doIt () {
+  
+  ws.send({
+    type: 'Text',
+    data: JSON.stringify({
+      "id": idSeed++,
+      "method": "Target.getTargets",
+      "params": {
+        "filter": [
+          { type: "browser", exclude: true },
+          { type: "tab", exclude: false }
+        ]
+      }
+    })
+  })
+  ws.send({
+    type: 'Text',
+    data: JSON.stringify({
+      "id": idSeed++,
+      "method": "SystemInfo.getProcessInfo"
+    })
+  })
+  // ws.send({
+  //   type: 'Text',
+  //   data: {
+  //     "method": "Target.targetCreated",
+  //     "params": {
+  //       "targetInfo": {
+  //         "targetId": "38555cfe-5ef3-44a5-a4e9-024ee6ebde5f",
+  //         "type": "browser",
+  //         "title": "",
+  //         "url": "https://www.cnblogs.com", "attached": true
+  //       }
+  //     }
+  //   }
+  // })
+  // ws.send({
+  //   type: 'Text',
+  //   data: {
+  //     "method": "Target.targetCreated", "params": {
+  //       "targetInfo": {
+  //         "targetId": "52CA0FEA80FB0B98BCDB759E535B21E4",
+  //         "type": "page", "title": "",
+  //         "url": "about:blank",
+  //         "attached": false,
+  //         "browserContextId": "339D5F1CCABEFE8545E15F3C2FA5F505"
+  //       }
+  //     }
+  //   }
+  // })
+}
 
 const orderStore = useOrderStore()
 const { theme } = useTheme()
@@ -59,41 +131,38 @@ let html = ref(null)
 let timer
 async function doOpenBrowser () {
   clearInterval(timer)
-  let [pid, tid] = await webdriver.launch()
+  let [pid, tid, port] = await webdriver.launch()
 
-  let tid2 = await webdriver.newTab()
-  console.log('启动', pid, tid)
 
-  timer = setInterval(() => {
-    webdriver.getPageContent(tid).then((json) => {
-      // html.value = json
-      if (json.data === '' || !json.success) {
-        console.log('2', json)
-      }
-    }).catch((error) => {
-      console.error('1 err', error)
-      html.value = error
-    })
-    webdriver.getPageContent(tid2).then((json) => {
-      if (json.data === '' || !json.success) {
-        console.log('2', json)
-      }
-    }).catch((error) => {
-      console.error('1 err', error)
-      html.value = error
-    })
-    webdriver.reload(tid)
-    webdriver.reload(tid2)
-    webdriver.getProcessStatus(pid).then((status) => {
-      console.log('status', status)
-    })
-    webdriver.getTabsCount().then((count) => {
-      console.log('tabs', count)
-    })
-    webdriver.getDebugWsUrl().then((wsUrl) => {
-      console.log('wsUrl', wsUrl)
-    })
-  }, 1000)
+  let tid2 = await webdriver.newTab('https://www.baidu.com')
+  console.log('启动', pid, [tid, tid2], port)
+  webdriver.getDebugWsUrl().then(async (ws) => {
+    console.log('wsUrl', ws)
+    runWs(ws)
+    let config = await webdriver.getDebugConfig(port)
+    console.log('config', config)
+  })
+
+
+  // timer = setInterval(() => {
+  //   webdriver.getPageContent(tid).then((json) => {
+  //     // html.value = json
+  //     if (json.data === '' || !json.success) {
+  //       console.log('2', json)
+  //     }
+  //   }).catch((error) => {
+  //     console.error('1 err', error)
+  //     html.value = error
+  //   })
+  //   webdriver.getPageContent(tid2).then((json) => {
+  //     console.log('2', json)
+  //   }).catch((error) => {
+  //     console.error('1 err', error)
+  //     html.value = error
+  //   })
+  //   // webdriver.reload(tid)
+  //   // webdriver.reload(tid2)
+  // }, 1000)
 }
 
 querySN()
@@ -124,7 +193,8 @@ onUnmounted(() => {
   <SwitchTheme></SwitchTheme>
 
   <button @click="doOpenBrowser">开始打开窗口</button>
-  {{ html }}
+  <button @click="doIt">发WS</button>
+  <div>{{ html }}</div>
   <div><input class="border-slate-600" type="text" v-focusable="true" /></div>
   <div><input class="border-slate-600" type="text" v-focusable="true" /></div>
   <div>
