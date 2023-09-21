@@ -54,22 +54,7 @@ struct Driver {
 
 fn get_driver<'a>() -> RwLockReadGuard<'a, Driver> {
 	let mut driver = driver_lock.read().unwrap();
-	let debug_ws_url = driver.debug_ws_url.clone();
-	let version_result = driver.browser.get_version();
-	if version_result.is_ok() {
-		driver
-	}
-	else {
-		drop(driver);
-		println!("ws连不上了 {:?}", version_result);
-		let mut driver = driver_lock.write().unwrap();
-		{
-			let newDriver = Driver::new().unwrap();
-			*driver = newDriver;
-			drop(driver);
-		}
-		driver_lock.read().unwrap()
-	}
+	driver
 }
 
 // #[derive(Serilize, Deserialize, Debug)]
@@ -126,46 +111,23 @@ fn create_browser() -> Result<Driver> {
 	};
 	// dbg!(&launch_options);
 	let context = Browser::new(launch_options);
-	// let context = Browser::connect("ws://localhost:8098/devtools/browser/11c6b531-a3ab-4009-96d8-3fa187c5ede6".to_string());
-	if context.is_ok() {
-		let browser = context.unwrap();
-		let first_tab = browser.wait_for_initial_tab()?;
-		let launch_target_id = first_tab.get_target_id().to_string();
-		// let process = browser.get_process().unwrap();
-		// println!("启动 {:?}", launch_target_id);
-
-		let config = get_debug_config(port.unwrap());
-		let mut webSocketDebuggerUrl = config.webSocketDebuggerUrl.unwrap();
-		let key: String = thread_rng().sample_iter(&Alphanumeric).take(10).map(char::from).collect();
-		let driver = Driver {
-			key: key,
-			process_id: None,
-			port: port,
-			launch_target_id: Some(launch_target_id),
-			debug_ws_url: webSocketDebuggerUrl,
-			browser: browser
-		};
-		Ok(driver)
-	}
-	else {
-		let config = get_debug_config(port.unwrap());
-		let mut webSocketDebuggerUrl = config.webSocketDebuggerUrl.unwrap();
-		let browser = Browser::connect(webSocketDebuggerUrl.clone())?;
-		let first_tab = browser.wait_for_initial_tab()?;
-		println!("ws启动1 {:?}", webSocketDebuggerUrl);
-		let launch_target_id = first_tab.get_target_id().to_string();
-		println!("ws启动2 {:?}", webSocketDebuggerUrl);
-		let key: String = thread_rng().sample_iter(&Alphanumeric).take(10).map(char::from).collect();
-		let driver = Driver {
-			key: key,
-			process_id: None,
-			port: port,
-			launch_target_id: Some(launch_target_id),
-			debug_ws_url: webSocketDebuggerUrl.clone(),
-			browser: browser
-		};
-		Ok(driver)
-	}
+	let browser = context.unwrap();
+	let first_tab = browser.wait_for_initial_tab()?;
+	let launch_target_id = first_tab.get_target_id().to_string();
+	let process_id = browser.get_process_id();
+	println!("启动 {:?}", launch_target_id);
+	let config = get_debug_config(port.unwrap());
+	let mut webSocketDebuggerUrl = config.webSocketDebuggerUrl.unwrap();
+	let key: String = thread_rng().sample_iter(&Alphanumeric).take(10).map(char::from).collect();
+	let driver = Driver {
+		key: key,
+		process_id: process_id,
+		port: port,
+		launch_target_id: Some(launch_target_id),
+		debug_ws_url: webSocketDebuggerUrl,
+		browser: browser
+	};
+	Ok(driver)
 }
 
 impl Driver {

@@ -294,6 +294,9 @@ onUnmounted(() => {
 
 <template>
   <SwitchTheme></SwitchTheme>
+  <button @click="doOpenBrowser">开始打开窗口</button>
+  <button @click="doIt">发WS</button>
+  <div>{{ html }}</div>
 
   <div>
     <vxe-table border height="400" :data="tableData" size="mini" :footer-method="footerMethod" :menu-config="menuConfig" @menu-click="contextMenuClickEvent">
