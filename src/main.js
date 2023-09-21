@@ -1,5 +1,7 @@
-import './assets/main.css'
 import { createApp } from 'vue'
+import VXETable from 'vxe-table'
+import 'vxe-table/lib/style.css'
+import './assets/main.css'
 import App from './App.vue'
 import router from './router'
 import { setupStore } from './store/index'
@@ -10,11 +12,12 @@ import { setupUpgrade } from './plugins'
 async function bootstrap () {
   const app = createApp(App)
   setupStore(app)
-  setupRem()
+  // setupRem()
   setupDebuger()
   setupUpgrade()
   setupVoicePacket()
 
+  app.use(VXETable)
   app.use(router)
   app.use(focusable)
   app.mount('#app')
