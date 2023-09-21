@@ -239,11 +239,12 @@ async function doOpenBrowser () {
 
   let tid2 = await webdriver.newTab('https://www.baidu.com')
   console.log('启动', pid, [tid, tid2], port)
-  webdriver.getDebugWsUrl().then(async (ws) => {
-    console.log('wsUrl', ws)
-    runWs(ws)
-    let config = await webdriver.getDebugConfig(port)
-    console.log('config', config)
+  webdriver.getDebugConfig(port).then(async (res) => {
+    let wsUrl = res.webSocketDebuggerUrl
+    console.log('wsUrl', wsUrl)
+    runWs(wsUrl)
+    // let config = await webdriver.getDebugConfig(port)
+    // console.log('config', config)
   })
 
 
