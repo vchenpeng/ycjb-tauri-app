@@ -163,16 +163,16 @@ fn launch(state: State<WrappedState>) -> (Option<u32>, Option<String>, Option<u1
 		launch_target_id = driver.launch_target_id.clone();
 	}
 	println!("启动浏览器 {:?},{:?},{:?}", driver.key, driver.port, driver.debug_ws_url);
-	if !process_id.is_none() && get_process_status(process_id.unwrap()) == "Unknown" {
-		println!("重新启动浏览器");
-		let newDriver = Driver::new().unwrap();
-		{
-			println!("获取写lock");
-			*driver = newDriver;
-			launch_target_id = driver.launch_target_id.clone();
-			process_id = driver.process_id.clone()
-		}
-	}
+	// if !process_id.is_none() && get_process_status(process_id.unwrap()) == "Unknown" {
+	// 	println!("重新启动浏览器");
+	// 	let newDriver = Driver::new().unwrap();
+	// 	{
+	// 		println!("获取写lock");
+	// 		*driver = newDriver;
+	// 		launch_target_id = driver.launch_target_id.clone();
+	// 		process_id = driver.process_id.clone()
+	// 	}
+	// }
 
 	println!("launch process_id {:?}", process_id);
 	println!("launch launch_target_id {:?}", launch_target_id);
