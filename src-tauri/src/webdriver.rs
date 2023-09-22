@@ -116,7 +116,7 @@ fn create_browser() -> Result<Driver> {
     let first_tab = browser.wait_for_initial_tab()?;
     let launch_target_id = first_tab.get_target_id().to_string();
     let process_id = browser.get_process_id();
-    println!("launch target_id {:?}", launch_target_id);
+    println!("launch {:?},{:?}", launch_target_id, process_id);
     let config = get_debug_config(port.unwrap());
     let mut web_socket_debugger_url = config.web_socket_debugger_url.unwrap();
     let key: String = thread_rng()
@@ -171,22 +171,24 @@ fn launch(
         launch_target_id = driver.launch_target_id.clone();
     }
     println!(
-        "启动浏览器 {:?},{:?},{:?},{:?}",
-        driver.key, driver.port, driver.debug_ws_url, force
+        "启动浏览器 {:?},{:?},{:?}",
+        driver.port, driver.debug_ws_url, force
     );
     if force.unwrap() {
         println!("强制启动浏览器");
-        let new_driver = Driver::new().unwrap();
+        let mut new_driver = Driver::new().unwrap();
         {
             println!("获取写lock");
             *driver = new_driver;
             launch_target_id = driver.launch_target_id.clone();
-            process_id = driver.process_id.clone()
+            process_id = driver.process_id.clone();
         }
     }
+    // from_secs
+    // std::thread::sleep(std::time::Duration::from_millis(10000));
     let status = get_process_status(process_id.unwrap());
-    println!("launch process_id {:?}", process_id);
-    println!("launch launch_target_id {:?}", launch_target_id);
+    println!("launch process_id: {:?}, launch_target_id {:?}", process_id, launch_target_id);
+    println!("launch status {:?}", status);
     return (process_id, launch_target_id, driver.port, Some(status));
 }
 
@@ -356,7 +358,7 @@ fn get_process_status(pid: u32) -> std::string::String {
     let s = System::new_all();
     if let Some(process) = s.process(Pid::from_u32(pid)) {
         let status = process.status();
-        // println!("process status {:?}", status);
+        println!("process status {:?}", status);
         return status.to_string().into();
     } else {
         return "Unknown".to_string();

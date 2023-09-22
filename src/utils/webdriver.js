@@ -2,14 +2,14 @@ import { invoke } from '@tauri-apps/api/tauri'
 import WebSocket from "@tauri-apps/plugin-websocket"
 
 let msgid = 0
-function genMsgId () {
+function genMsgId() {
   return msgid++
 }
 export default class WebDriver {
   constructor(config) {
     this.config = config
   }
-  static async launch (force =  false) {
+  static async launch(force = false) {
     return invoke('plugin:webdriver|launch', { force }).then(info => {
       // let status = await invoke('plugin:webdriver|get_process_status', {
       //   pid: info.pid
@@ -19,7 +19,13 @@ export default class WebDriver {
       return Error('launch error')
     })
   }
-  static async connect (port) {
+  static async getProcessStatus(pid) {
+    let status = await invoke('plugin:webdriver|get_process_status', {
+      pid: pid
+    })
+    return status
+  }
+  static async connect(port) {
     return await invoke('plugin:webdriver|get_debug_config', {
       port
     }).then(async (config) => {
@@ -39,13 +45,13 @@ export default class WebDriver {
       return context
     })
   }
-  addListener (cb) {
+  addListener(cb) {
     this.ws.addListener(cb)
   }
-  updateWsStatus (status) {
+  updateWsStatus(status) {
     this.status = status
   }
-  on (name, event) {
+  on(name, event) {
     this.ws.addListener((e) => {
       if (name === 'close' && e === 'WebSocket protocol error: Connection reset without closing handshake') {
         this.status = 0
@@ -56,7 +62,7 @@ export default class WebDriver {
       }
     })
   }
-  async send (params = {}) {
+  async send(params = {}) {
     this.ws.send({
       type: 'Text',
       data: JSON.stringify({
@@ -65,7 +71,7 @@ export default class WebDriver {
       })
     })
   }
-  async disconnect () {
+  async disconnect() {
     this.ws.disconnect()
   }
 }

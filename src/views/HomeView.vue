@@ -206,7 +206,7 @@ async function launch (force= false) {
   try {
     let [pid, tid, port, status] = await webdriver.launch(force)
     console.log('浏览器实例', browser, pid, tid, port, status)
-    if (status === 'Runnable') {
+    if (status !== 'Runnable') {
       browser.value = await webdriver.connect(port)
       browser.value.on('close', () => {
         console.log('关闭了')
@@ -215,8 +215,12 @@ async function launch (force= false) {
         console.log(e)
       })
     } else if (status === 'Unknown') {
-      launch(true)
+      // launch(true)
     }
+    setInterval(async () => {
+      let status  = await webdriver.getProcessStatus(pid)
+      console.log('status', status)
+    }, 1000)
   }
   catch (error) {
     console.error(error)
