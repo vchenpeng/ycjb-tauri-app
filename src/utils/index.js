@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import * as bridge from './bridge'
 import player from './player'
-import * as webdriver from './webdriver'
+import webdriver from './webdriver'
 import { useVoicePacketStoreWithout } from '@/store/index'
 
 const voicePacketStore = useVoicePacketStoreWithout()

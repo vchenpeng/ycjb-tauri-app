@@ -10,48 +10,17 @@ import { useTheme } from '@/hooks/useTheme.js'
 import { useVoicePacket } from '@/hooks/useVoicepacket.js'
 import SwitchTheme from '@/components/SwitchTheme.vue'
 import { webdriver } from '@/utils/index.js'
-import WS from "@tauri-apps/plugin-websocket"
 
-let ws
-let idSeed = 0
-async function runWs (url) {
-  console.log('ws url ~~', url)
-  ws = await WS.connect(url, {
-    url: url,
-    headers: []
-  })
-  console.log(ws)
-  ws.addListener(function (res) {
-    let isText = res['type'] === 'Text'
-    if (isText) {
-      console.log('log', JSON.parse(res.data))
-    } else {
-      console.error(res)
-    }
-  })
-}
 
 function doIt () {
-
-  ws.send({
-    type: 'Text',
-    data: JSON.stringify({
-      "id": idSeed++,
-      "method": "Target.getTargets",
-      "params": {
-        "filter": [
-          { type: "browser", exclude: true },
-          { type: "tab", exclude: false }
-        ]
-      }
-    })
-  })
-  ws.send({
-    type: 'Text',
-    data: JSON.stringify({
-      "id": idSeed++,
-      "method": "SystemInfo.getProcessInfo"
-    })
+  browser.value.send({
+    "method": "Target.getTargets",
+    "params": {
+      "filter": [
+        { type: "browser", exclude: true },
+        { type: "tab", exclude: false }
+      ]
+    }
   })
   // ws.send({
   //   type: 'Text',
@@ -230,24 +199,33 @@ function doStart () {
 }
 
 let html = ref(null)
+let browser = ref(null)
+let status = computed(() => browser.value?.status)
 
+async function launch (force= false) {
+  try {
+    let [pid, tid, port, status] = await webdriver.launch(force)
+    console.log('浏览器实例', browser, pid, tid, port, status)
+    if (status === 'Runnable') {
+      browser.value = await webdriver.connect(port)
+      browser.value.on('close', () => {
+        console.log('关闭了')
+      })
+      browser.value.on('message', (e) => {
+        console.log(e)
+      })
+    } else if (status === 'Unknown') {
+      launch(true)
+    }
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
 let timer
 async function doOpenBrowser () {
   clearInterval(timer)
-  let [pid, tid, port] = await webdriver.launch()
-
-
-  let tid2 = await webdriver.newTab('https://www.baidu.com')
-  console.log('启动', pid, [tid, tid2], port)
-  webdriver.getDebugConfig(port).then(async (res) => {
-    let wsUrl = res.webSocketDebuggerUrl
-    console.log('wsUrl', wsUrl)
-    runWs(wsUrl)
-    // let config = await webdriver.getDebugConfig(port)
-    // console.log('config', config)
-  })
-
-
+  launch()
   // timer = setInterval(() => {
   //   webdriver.getPageContent(tid).then((json) => {
   //     // html.value = json
@@ -269,7 +247,7 @@ async function doOpenBrowser () {
   // }, 1000)
 }
 
-querySN()
+// querySN()
 
 // 监控是否存在新订单，如果有说明是播放中断之后，尝试唤醒（此方法不会触发播放器同一时刻多个号同时叫号的原则）
 watch([orderSignal, total], ([w1, w2]) => {
@@ -295,8 +273,8 @@ onUnmounted(() => {
 
 <template>
   <SwitchTheme></SwitchTheme>
-  <button @click="doOpenBrowser">开始打开窗口</button>
-  <button @click="doIt">发WS</button>
+  <button @click="doOpenBrowser">开始打开窗口</button>,
+  <button @click="doIt">发WS({{ status }})</button>
   <div>{{ html }}</div>
 
   <div>

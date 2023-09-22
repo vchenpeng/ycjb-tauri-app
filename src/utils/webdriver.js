@@ -1,97 +1,71 @@
 import { invoke } from '@tauri-apps/api/tauri'
+import WebSocket from "@tauri-apps/plugin-websocket"
 
-export async function getPageContent (tid) {
-  return invoke('plugin:webdriver|get_tab_content', {
-    tid: tid,
-  })
+let msgid = 0
+function genMsgId () {
+  return msgid++
 }
-export async function newTab (url) {
-  const tid = await invoke('plugin:webdriver|new_tab', {
-    url: url
-  })
-  return tid
-}
-
-export async function getTabsCount (tid) {
-  return invoke('plugin:webdriver|get_tabs_count', {
-    tid: tid,
-  })
-}
-
-export async function getProcessId () {
-  return invoke('plugin:webdriver|get_process_id', {})
-}
-// get_process_id
-
-export async function reload (tid) {
-  invoke('plugin:webdriver|reload', {
-    tid: tid,
-  })
-}
-
-export async function launch () {
-  const tid = await invoke('plugin:webdriver|launch')
-  return tid
-}
-
-export async function getDebugWsUrl () {
-  const url = await invoke('plugin:webdriver|get_debug_ws_url')
-  return url
-}
-
-export async function getDebugConfig (port) {
-  const config = await invoke('plugin:webdriver|get_debug_config', {
-    port
-  })
-  return config
-}
-
-export async function getProcessStatus (pid) {
-  const status = await invoke('plugin:webdriver|get_process_status', {
-    pid
-  })
-  return status
-}
-export async function init () {
-  (window).invoke = invoke
-  const deviceId = await invoke('get_machine_uid')
-  const tid1 = await invoke('plugin:webdriver|launch')
-  const tid2 = await invoke('plugin:webdriver|new_tab', {
-    url: 'https://www.hao123.com',
-  })
-  const tid3 = await invoke('plugin:webdriver|new_tab', {
-    url: 'https://www.2345.com',
-  })
-  setInterval(() => {
-    invoke('plugin:webdriver|get_tab_content', {
-      tid: tid1,
-    }).then((json) => {
-      if (json.data === '')
-        console.log('1', json)
-    }).catch((error) => {
-      console.error('1 err', error)
+export default class WebDriver {
+  constructor(config) {
+    this.config = config
+  }
+  static async launch (force =  false) {
+    return invoke('plugin:webdriver|launch', { force }).then(info => {
+      // let status = await invoke('plugin:webdriver|get_process_status', {
+      //   pid: info.pid
+      // })
+      return info
+    }).catch(() => {
+      return Error('launch error')
     })
-    invoke('plugin:webdriver|get_tab_content', {
-      tid: tid2,
-    }).then((json) => {
-      // if (json.data === '')
-      console.log('2', json)
-    }).catch((error) => {
-      console.error('2 err', error)
+  }
+  static async connect (port) {
+    return await invoke('plugin:webdriver|get_debug_config', {
+      port
+    }).then(async (config) => {
+      let ws = await WebSocket.connect(config.web_socket_debugger_url, {
+        headers: []
+      })
+      return { config, ws }
+    }).then(({ config, ws }) => {
+      let context = new WebDriver({
+        status: 1,
+        port: port,
+        web_socket_debugger_url: config.web_socket_debugger_url
+      })
+      context.ws = ws
+      context.status = 1
+
+      return context
     })
-    invoke('plugin:webdriver|get_tab_content', {
-      tid: tid3,
-    }).then((json) => {
-      if (json.data === '')
-        console.log('3', json)
-    }).catch((error) => {
-      console.error('3 err', error)
+  }
+  addListener (cb) {
+    this.ws.addListener(cb)
+  }
+  updateWsStatus (status) {
+    this.status = status
+  }
+  on (name, event) {
+    this.ws.addListener((e) => {
+      if (name === 'close' && e === 'WebSocket protocol error: Connection reset without closing handshake') {
+        this.status = 0
+        event()
+      } else {
+        let isText = e['type'] === 'Text'
+        isText ? event(JSON.parse(e.data)) : event(e)
+      }
     })
-    // invoke<string>('plugin:webdriver|reload', {
-    //   tid: firstTid,
-    // })
-    // invoke<string>('plugin:webdriver|reload', {
-    //   tid: secondTid,
-    // })
-  }, 200)
+  }
+  async send (params = {}) {
+    this.ws.send({
+      type: 'Text',
+      data: JSON.stringify({
+        id: genMsgId(),
+        ...params
+      })
+    })
+  }
+  async disconnect () {
+    this.ws.disconnect()
+  }
 }
