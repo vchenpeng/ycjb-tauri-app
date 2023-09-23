@@ -209,9 +209,10 @@ let html = ref(null)
 let browser = ref(null)
 let status = computed(() => browser.value?.status)
 
-async function launch (force = true) {
+async function launch () {
   try {
     // browser.value?.disconnect()
+    let force = browser.value === null ? false : true
     let [pid, tid, port, status] = await webdriver.launch(force)
     console.log('浏览器实例', browser, pid, tid, port, status)
     browser.value = await webdriver.connect(port)
@@ -282,7 +283,7 @@ onUnmounted(() => {
 <template>
   <SwitchTheme></SwitchTheme>
   <button @click="doOpenBrowser">开始打开窗口</button>,
-  <button @click="doIt">发WS({{ browser?.status }})</button>
+  <button @click="doIt">发WS({{ status }})</button>
   <div>{{ html }}</div>
 
   <div>

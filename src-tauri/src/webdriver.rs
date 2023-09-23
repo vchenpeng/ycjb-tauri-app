@@ -94,13 +94,14 @@ fn create_browser() -> Result<Driver> {
         // "--use-mock-keychain"
     ];
     // let path = PathBuf::from(r"/Users/chenpeng/Library/Application Support/Google/Chrome");
+    let user_data_dir = PathBuf::from(r"C:\Users\Administrator\Downloads\开标助手_v1.4\缓存目录");
     let port = get_available_port();
     println!("launch port {:?}", port);
     let launch_options = LaunchOptions {
         headless: false,
         sandbox: true,
         // enable_gpu: true,
-        // user_data_dir: Some(path).clone(),
+        user_data_dir: Some(user_data_dir).clone(),
         port: port,
         ignore_certificate_errors: false,
         disable_default_args: true,
@@ -112,27 +113,32 @@ fn create_browser() -> Result<Driver> {
     };
     // dbg!(&launch_options);
     let context = Browser::new(launch_options);
-    let browser = context.unwrap();
-    let first_tab = browser.wait_for_initial_tab()?;
-    let launch_target_id = first_tab.get_target_id().to_string();
-    let process_id = browser.get_process_id();
-    println!("launch {:?},{:?}", launch_target_id, process_id);
-    let config = get_debug_config(port.unwrap());
-    let web_socket_debugger_url = config.web_socket_debugger_url.unwrap();
-    let key: String = thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(10)
-        .map(char::from)
-        .collect();
-    let driver = Driver {
-        key: key,
-        process_id: process_id,
-        port: port,
-        launch_target_id: Some(launch_target_id),
-        debug_ws_url: web_socket_debugger_url,
-        browser: browser,
-    };
-    Ok(driver)
+    if !content.is_none() {
+        let browser = context.unwrap();
+        let first_tab = browser.wait_for_initial_tab()?;
+        let launch_target_id = first_tab.get_target_id().to_string();
+        let process_id = browser.get_process_id();
+        println!("launch {:?},{:?}", launch_target_id, process_id);
+        let config = get_debug_config(port.unwrap());
+        let web_socket_debugger_url = config.web_socket_debugger_url.unwrap();
+        let key: String = thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(10)
+            .map(char::from)
+            .collect();
+        let driver = Driver {
+            key: key,
+            process_id: process_id,
+            port: port,
+            launch_target_id: Some(launch_target_id),
+            debug_ws_url: web_socket_debugger_url,
+            browser: browser,
+        };
+        Ok(driver)
+    }
+    else {
+        Err(None)
+    }
 }
 
 impl Driver {
