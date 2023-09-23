@@ -25,6 +25,9 @@ function doIt () {
   browser.value.send({
     "method": "SystemInfo.getProcessInfo"
   })
+  browser.value.send({
+    "method": "SystemInfo.getInfo"
+  })
   // ws.send({
   //   type: 'Text',
   //   data: {
@@ -207,12 +210,13 @@ let status = computed(() => browser.value?.status)
 
 async function launch (force= false) {
   try {
+    browser.value?.disconnect()
     let [pid, tid, port, status] = await webdriver.launch(force)
     console.log('浏览器实例', browser, pid, tid, port, status)
     if (status == 'Runnable') {
       browser.value = await webdriver.connect(port)
-      browser.value.on('close', () => {
-        console.log('关闭了')
+      browser.value.on('close', (...args) => {
+        console.log('关闭了', args)
       })
       browser.value.on('message', (e) => {
         console.log(e)
