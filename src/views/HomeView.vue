@@ -25,6 +25,9 @@ function doIt () {
   browser.value.send({
     "method": "SystemInfo.getProcessInfo"
   })
+  browser.value.send({
+    "method": "SystemInfo.getInfo"
+  })
   // ws.send({
   //   type: 'Text',
   //   data: {
