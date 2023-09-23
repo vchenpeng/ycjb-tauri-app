@@ -12,8 +12,8 @@ import SwitchTheme from '@/components/SwitchTheme.vue'
 import { webdriver } from '@/utils/index.js'
 
 
-function doIt () {
-  browser.value.send({
+async function doIt () {
+  let targets = await browser.value.send({
     "method": "Target.getTargets",
     "params": {
       "filter": [
@@ -21,13 +21,16 @@ function doIt () {
         { type: "tab", exclude: false }
       ]
     }
+  }).catch(() => {
+    
   })
-  browser.value.send({
+  let processInfo = await browser.value.send({
     "method": "SystemInfo.getProcessInfo"
   })
-  browser.value.send({
+  let sysInfo = await browser.value.send({
     "method": "SystemInfo.getInfo"
   })
+  console.log(targets, processInfo, sysInfo)
   // ws.send({
   //   type: 'Text',
   //   data: {
@@ -208,28 +211,17 @@ let html = ref(null)
 let browser = ref(null)
 let status = computed(() => browser.value?.status)
 
-async function launch (force= false) {
+async function launch (force = true) {
   try {
     browser.value?.disconnect()
     let [pid, tid, port, status] = await webdriver.launch(force)
     console.log('浏览器实例', browser, pid, tid, port, status)
-    if (status !== 'Runnable') {
-      browser.value = await webdriver.connect(port)
-      browser.value.on('close', (...args) => {
-        console.log('关闭了', args)
-      })
-      browser.value.on('message', (e) => {
-        if (e.id === 5) {
-          console.log(e.result.commandLine)
-        } else {
-          console.log(e)
-        }
-      })
-    } else if (status === 'Unknown') {
-      // launch(true)
-    }
+    browser.value = await webdriver.connect(port)
+    browser.value.on('close', (...args) => {
+      console.log('关闭了', args)
+    })
     setInterval(async () => {
-      let status  = await webdriver.getProcessStatus(pid)
+      let status = await webdriver.getProcessStatus(pid)
       console.log('status', status)
     }, 5000)
   }

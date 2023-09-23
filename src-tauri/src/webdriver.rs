@@ -118,7 +118,7 @@ fn create_browser() -> Result<Driver> {
     let process_id = browser.get_process_id();
     println!("launch {:?},{:?}", launch_target_id, process_id);
     let config = get_debug_config(port.unwrap());
-    let mut web_socket_debugger_url = config.web_socket_debugger_url.unwrap();
+    let web_socket_debugger_url = config.web_socket_debugger_url.unwrap();
     let key: String = thread_rng()
         .sample_iter(&Alphanumeric)
         .take(10)
@@ -176,7 +176,7 @@ fn launch(
     );
     if force.unwrap() {
         println!("强制启动浏览器");
-        let mut new_driver = Driver::new().unwrap();
+        let new_driver = Driver::new().unwrap();
         {
             println!("获取写lock");
             *driver = new_driver;
@@ -187,7 +187,10 @@ fn launch(
     // from_secs
     // std::thread::sleep(std::time::Duration::from_millis(10000));
     let status = get_process_status(process_id.unwrap());
-    println!("launch process_id: {:?}, launch_target_id {:?}", process_id, launch_target_id);
+    println!(
+        "launch process_id: {:?}, launch_target_id {:?}",
+        process_id, launch_target_id
+    );
     println!("launch status {:?}", status);
     return (process_id, launch_target_id, driver.port, Some(status));
 }
