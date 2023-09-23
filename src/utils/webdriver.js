@@ -52,7 +52,6 @@ export default class WebDriver {
             resolve(json)
           }
         }
-        console.log(e)
         // 清理1s前的任务队列
         context.tasks.forEach(({ timestamp }, key) => {
           if (+new Date() - timestamp > 5000) {
