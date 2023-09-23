@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/tauri'
-import WebSocket from "@tauri-apps/plugin-websocket"
+import WebSocket from "./websocket.js"
 
 let msgid = 0
 function genMsgId () {
@@ -26,10 +26,8 @@ export default class WebDriver {
     })
     return status
   }
-  static async connect (port) {
-    return await invoke('plugin:webdriver|get_debug_config', {
-      port
-    }).then(async (config) => {
+  static connect (port) {
+    return invoke('plugin:webdriver|get_debug_config', { port }).then(async (config) => {
       let ws = await WebSocket.connect(config.web_socket_debugger_url, {
         headers: []
       })
@@ -54,6 +52,14 @@ export default class WebDriver {
             resolve(json)
           }
         }
+        console.log(e)
+        // 清理1s前的任务队列
+        context.tasks.forEach(({ timestamp }, key) => {
+          if (+new Date() - timestamp > 5000) {
+            context.tasks.delete(key)
+          }
+        })
+
       })
       return context
     })
@@ -80,7 +86,8 @@ export default class WebDriver {
       ...params
     }
     let task = new Promise((resolve, reject) => {
-      this.tasks.set(json.id, { resolve, reject, json })
+      let timestamp = +new Date()
+      this.tasks.set(json.id, { resolve, reject, json, timestamp })
     })
     this.ws.send({
       type: 'Text',

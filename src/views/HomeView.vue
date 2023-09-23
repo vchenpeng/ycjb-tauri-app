@@ -21,8 +21,6 @@ async function doIt () {
         { type: "tab", exclude: false }
       ]
     }
-  }).catch(() => {
-    
   })
   let processInfo = await browser.value.send({
     "method": "SystemInfo.getProcessInfo"
@@ -213,17 +211,20 @@ let status = computed(() => browser.value?.status)
 
 async function launch (force = true) {
   try {
-    browser.value?.disconnect()
+    // browser.value?.disconnect()
     let [pid, tid, port, status] = await webdriver.launch(force)
     console.log('浏览器实例', browser, pid, tid, port, status)
     browser.value = await webdriver.connect(port)
-    browser.value.on('close', (...args) => {
-      console.log('关闭了', args)
+    browser.value.on('close', async (...args) => {
+      console.log('ws连接关闭', args)
+      browser.value = await webdriver.connect(port).catch((error) => {
+        console.log('ws重新连接失败', error)
+      })
     })
-    setInterval(async () => {
-      let status = await webdriver.getProcessStatus(pid)
-      console.log('status', status)
-    }, 5000)
+    // setInterval(async () => {
+    //   let status = await webdriver.getProcessStatus(pid)
+    //   console.log('status', status)
+    // }, 5000)
   }
   catch (error) {
     console.error(error)
@@ -281,7 +282,7 @@ onUnmounted(() => {
 <template>
   <SwitchTheme></SwitchTheme>
   <button @click="doOpenBrowser">开始打开窗口</button>,
-  <button @click="doIt">发WS({{ status }})</button>
+  <button @click="doIt">发WS({{ browser?.status }})</button>
   <div>{{ html }}</div>
 
   <div>
