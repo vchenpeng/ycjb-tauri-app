@@ -213,13 +213,17 @@ async function launch (force= false) {
     browser.value?.disconnect()
     let [pid, tid, port, status] = await webdriver.launch(force)
     console.log('浏览器实例', browser, pid, tid, port, status)
-    if (status == 'Runnable') {
+    if (status !== 'Runnable') {
       browser.value = await webdriver.connect(port)
       browser.value.on('close', (...args) => {
         console.log('关闭了', args)
       })
       browser.value.on('message', (e) => {
-        console.log(e)
+        if (e.id === 5) {
+          console.log(e.result.commandLine)
+        } else {
+          console.log(e)
+        }
       })
     } else if (status === 'Unknown') {
       // launch(true)
