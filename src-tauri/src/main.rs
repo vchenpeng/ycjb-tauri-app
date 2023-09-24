@@ -13,17 +13,17 @@ fn greet(name: &str) -> String {
 
 #[tauri::command]
 fn get_machine_uid() -> String {
-		let id: String = machine_uid::get().unwrap();
-		format!("{}", id)
+    let id: String = machine_uid::get().unwrap();
+    format!("{}", id)
 }
 
 fn main() {
-	tauri::Builder::default()
-					.plugin(tauri_plugin_store::Builder::default().build())
-					.plugin(tauri_plugin_sql::Builder::default().build())
-					.plugin(tauri_plugin_websocket::init())
-					.plugin(webdriver::init())
-	        .invoke_handler(tauri::generate_handler![greet, get_machine_uid])
-	        .run(tauri::generate_context!())
-	        .expect("error while running tauri application");
+    tauri::Builder::default()
+        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_sql::Builder::default().build())
+        .plugin(tauri_plugin_websocket::init())
+        .plugin(webdriver::init())
+        .invoke_handler(tauri::generate_handler![greet, get_machine_uid])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }

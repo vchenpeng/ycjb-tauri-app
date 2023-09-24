@@ -189,6 +189,7 @@ async function doOpenBrowser () {
   clearInterval(timer)
   launch()
   timer = setInterval(async () => {
+    let now = SDK.dayjs().format('HH:mm:ss')
     let json = await getTargets()
     leftTableData.value = SDK._.chain(json.result.targetInfos || []).map(item => {
       let uri = SDK.utils.parseUrl(item.url)
@@ -203,7 +204,7 @@ async function doOpenBrowser () {
         host: item.uri.host
       }
     }).uniqBy('host').value()
-    console.log(leftTableData.value)
+    console.log(now, leftTableData.value)
   }, 1000)
 }
 
@@ -261,38 +262,38 @@ onUnmounted(() => {
   </div>
   <div class="nav-container">
     <div class="nav-btns-container">
-      <div class="nav-wrap">
+      <vxe-button class="nav-wrap" type="text" :disabled="true">
         <img src="../assets/添加.png" alt="" srcset="">
         <span>添加</span>
-      </div>
-      <div class="nav-wrap">
+      </vxe-button>
+      <vxe-button class="nav-wrap" type="text" :disabled="true">
         <img src="../assets/修改.png" alt="" srcset="">
         <span>修改</span>
-      </div>
-      <div class="nav-wrap">
+      </vxe-button>
+      <vxe-button class="nav-wrap" type="text">
         <img src="../assets/删除.png" alt="" srcset="">
         <span>删除</span>
-      </div>
-      <div class="nav-wrap" @click="doOpenBrowser">
+      </vxe-button>
+      <vxe-button class="nav-wrap" type="text" @click="doOpenBrowser">
         <img src="../assets/启动浏览器.png" alt="" srcset="">
         <span>启动浏览器</span>
-      </div>
-      <div class="nav-wrap" @click="doIt">
+      </vxe-button>
+      <vxe-button class="nav-wrap" type="text" @click="doIt">
         <img src="../assets/开始监控.png" alt="" srcset="">
         <span>开始{{ status }}</span>
-      </div>
-      <div class="nav-wrap">
+      </vxe-button>
+      <vxe-button class="nav-wrap" type="text">
         <img src="../assets/暂停.png" alt="" srcset="">
         <span>暂停</span>
-      </div>
-      <div class="nav-wrap">
+      </vxe-button>
+      <vxe-button class="nav-wrap" type="text">
         <img src="../assets/停止.png" alt="" srcset="">
         <span>停止</span>
-      </div>
-      <div class="nav-wrap" @click="handleShowAbout">
+      </vxe-button>
+      <vxe-button class="nav-wrap" type="text" @click="handleShowAbout">
         <img src="../assets/关于.png" alt="" srcset="">
         <span>关于</span>
-      </div>
+      </vxe-button>
     </div>
     <div class="nav-timer">
       <span>00秒</span>
@@ -305,7 +306,8 @@ onUnmounted(() => {
       </vxe-table>
     </div>
     <div class="right-table-container">
-      <vxe-table height="396" :data="rightTableData" :row-config="{isCurrent: true, isHover: true}" size="mini" :footer-method="footerMethod" :menu-config="menuConfig" @menu-click="contextMenuClickEvent">
+      <vxe-table height="396" :data="rightTableData" :row-config="{isCurrent: true, isHover: true}" size="mini" :footer-method="footerMethod" :menu-config="menuConfig"
+        @menu-click="contextMenuClickEvent">
         <vxe-column type="checkbox" title="" width="40"></vxe-column>
         <vxe-column field="host" title="监控页面" show-overflow></vxe-column>
         <vxe-column field="keyword" title="监控关键词"></vxe-column>
@@ -356,20 +358,39 @@ onUnmounted(() => {
       padding: 6px 10px 6px 10px;
       border: 1px solid transparent;
       margin: 0 2px;
-      > img {
+      border-radius: 6px;
+      box-sizing: border-box;
+      :deep() {
+        .vxe-button--content {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+        }
+      }
+      img {
         width: 50px;
         // height: 50px;
       }
-      > span {
+      span {
         font-size: 10px;
         font-weight: 400;
-        margin-top: 4px;
+        margin-top: 6px;
         line-height: 1;
       }
       &:hover {
-        border: 1px solid #909090;
+        border: 1px solid rgba(96, 98, 102, 0.3);;
         box-sizing: content-box;
-        border-radius: 4px;
+        cursor: default;
+        span {
+          color: rgb(96, 98, 102);
+        }
+      }
+      &.is--disabled {
+        border: 1px solid transparent;
+        filter: grayscale(100%);
+        span {
+          color: inherit;
+        }
       }
     }
   }

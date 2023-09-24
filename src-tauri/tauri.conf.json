@@ -58,7 +58,9 @@
       {
         "fullscreen": false,
         "resizable": false,
-        "title": "域创金标小助手",
+        "focus": true,
+        "acceptFirstMouse": true,
+        "title": "域创金标开标助手",
         "width": 1024,
         "height": 768,
         "center": true
