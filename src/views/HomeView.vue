@@ -355,6 +355,7 @@ onUnmounted(() => {
       align-items: center;
       padding: 6px 10px 6px 10px;
       border: 1px solid transparent;
+      margin: 0 2px;
       > img {
         width: 50px;
         // height: 50px;

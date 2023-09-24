@@ -59,6 +59,7 @@ export default ({ mode }) => {
       minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
       // produce sourcemaps for debug builds
       sourcemap: !!process.env.TAURI_DEBUG,
+      assetsInlineLimit: 4096000000,
       reportCompressedSize: false,
       commonjsOptions: {
         ignoreTryCatch: false,
