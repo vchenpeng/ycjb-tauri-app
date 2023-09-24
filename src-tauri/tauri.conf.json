@@ -57,7 +57,7 @@
     "windows": [
       {
         "fullscreen": false,
-        "resizable": true,
+        "resizable": false,
         "title": "域创金标小助手",
         "width": 1024,
         "height": 768

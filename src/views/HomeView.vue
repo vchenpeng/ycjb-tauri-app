@@ -77,70 +77,22 @@ const mqText = computed(() => {
 
 let version = ref(SDK.version)
 let sn = ref(null)
-const tableData = ref([
-  { id: 10001, name: 'Test1', role: 'Develop', sex: 'Man', age: 28, address: 'test abc' },
-  { id: 10002, name: 'Test2', role: 'Test', sex: 'Women', age: 22, address: 'Guangzhou' },
-  { id: 10003, name: 'Test3', role: 'PM', sex: 'Man', age: 32, address: 'Shanghai' },
-  { id: 10004, name: 'Test4', role: 'Designer', sex: 'Women', age: 23, address: 'test abc' },
-  { id: 10005, name: 'Test5', role: 'Develop', sex: 'Women', age: 30, address: 'Shanghai' },
-  { id: 10006, name: 'Test6', role: 'Designer', sex: 'Women', age: 21, address: 'test abc' },
-  { id: 10007, name: 'Test7', role: 'Test', sex: 'Man', age: 29, address: 'test abc' },
-  { id: 10008, name: 'Test8', role: 'Develop', sex: 'Man', age: 35, address: 'test abc' },
-  { id: 10009, name: 'Test9', role: 'Test', sex: 'Man', age: 26, address: 'test abc' },
-  { id: 10010, name: 'Test10', role: 'Develop', sex: 'Man', age: 38, address: 'test abc' },
-  { id: 10011, name: 'Test11', role: 'Test', sex: 'Women', age: 29, address: 'test abc' },
-  { id: 10012, name: 'Test12', role: 'Develop', sex: 'Man', age: 27, address: 'test abc' },
-  { id: 10013, name: 'Test13', role: 'Test', sex: 'Women', age: 24, address: 'test abc' },
-  { id: 10014, name: 'Test14', role: 'Develop', sex: 'Man', age: 34, address: 'test abc' },
-  { id: 10015, name: 'Test15', role: 'Test', sex: 'Man', age: 21, address: 'test abc' },
-  { id: 10016, name: 'Test16', role: 'Develop', sex: 'Women', age: 20, address: 'test abc' },
-  { id: 10017, name: 'Test17', role: 'Test', sex: 'Man', age: 31, address: 'test abc' },
-  { id: 10018, name: 'Test18', role: 'Develop', sex: 'Women', age: 32, address: 'test abc' },
-  { id: 10019, name: 'Test19', role: 'Test', sex: 'Man', age: 37, address: 'test abc' },
-  { id: 10020, name: 'Test20', role: 'Develop', sex: 'Man', age: 41, address: 'test abc' }
+
+let leftTableData = ref([])
+let rightTableData = ref([
+  { id: 10001, host: 'www.baidu.com', keyword: '测试', audio: 'Man', text: 28, refresh: '1s', status: '刷新中', timer: '10' }
 ])
 
 const menuConfig = reactive({
   className: 'my-menus',
-  header: {
-    options: [
-      [
-        { code: 'exportAll', name: '导出所有.csv' }
-      ]
-    ]
-  },
   body: {
     options: [
       [
-        { code: 'copy', name: '复制', prefixIcon: 'vxe-icon-copy', className: 'my-copy-item' }
+        { code: 'copy', name: '添加', prefixIcon: 'vxe-icon-add', className: 'my-copy-item' },
+        { code: 'edit', name: '修改', prefixIcon: 'vxe-icon-edit', className: 'my-copy-item' }
       ],
       [
-        { code: 'remove', name: '删除', prefixIcon: 'vxe-icon-delete-fill color-red' },
-        {
-          name: '筛选',
-          children: [
-            { code: 'clearFilter', name: '清除筛选' },
-            { code: 'filterSelect', name: '按所选单元格的值筛选' }
-          ]
-        },
-        {
-          code: 'sort',
-          name: '排序',
-          prefixIcon: 'vxe-icon-sort color-blue',
-          children: [
-            { code: 'clearSort', name: '清除排序' },
-            { code: 'sortAsc', name: '升序', prefixIcon: 'vxe-icon-sort-alpha-asc color-orange' },
-            { code: 'sortDesc', name: '倒序', prefixIcon: 'vxe-icon-sort-alpha-desc color-orange' }
-          ]
-        },
-        { code: 'print', name: '打印', disabled: true }
-      ]
-    ]
-  },
-  footer: {
-    options: [
-      [
-        { code: 'clearAll', name: '清空数据' }
+        { code: 'remove', name: '删除', prefixIcon: 'vxe-icon-delete-fill color-red' }
       ]
     ]
   }
@@ -218,6 +170,7 @@ async function launch () {
     browser.value = await webdriver.connect(port)
     browser.value.on('close', async (...args) => {
       console.log('ws连接关闭', args)
+      this.leftTableData.value = []
       browser.value = await webdriver.connect(port).catch((error) => {
         console.log('ws重新连接失败', error)
       })
@@ -235,25 +188,45 @@ let timer
 async function doOpenBrowser () {
   clearInterval(timer)
   launch()
-  // timer = setInterval(() => {
-  //   webdriver.getPageContent(tid).then((json) => {
-  //     // html.value = json
-  //     if (json.data === '' || !json.success) {
-  //       console.log('2', json)
-  //     }
-  //   }).catch((error) => {
-  //     console.error('1 err', error)
-  //     html.value = error
-  //   })
-  //   webdriver.getPageContent(tid2).then((json) => {
-  //     console.log('2', json)
-  //   }).catch((error) => {
-  //     console.error('1 err', error)
-  //     html.value = error
-  //   })
-  //   // webdriver.reload(tid)
-  //   // webdriver.reload(tid2)
-  // }, 1000)
+  timer = setInterval(async () => {
+    let json = await getTargets()
+    leftTableData.value = SDK._.chain(json.result.targetInfos || []).map(item => {
+      let uri = SDK.utils.parseUrl(item.url)
+      return {
+        ...item,
+        uri: uri
+      }
+    }).filter(item => {
+      return item.uri.valid
+    }).map(item => {
+      return {
+        host: item.uri.host
+      }
+    }).uniqBy('host').value()
+    console.log(leftTableData.value)
+  }, 1000)
+}
+
+function handleOpenUrl () {
+  window.open('https://www.ycjinbiao.com/', null)
+}
+
+async function getTargets () {
+  let targets = await browser.value.send({
+    "method": "Target.getTargets",
+    "params": {
+      "filter": [
+        { type: "browser", exclude: true },
+        { type: "tab", exclude: false }
+      ]
+    }
+  })
+  return targets
+}
+
+let aboutVisible = ref(false)
+function handleShowAbout () {
+  aboutVisible.value = true
 }
 
 // querySN()
@@ -282,20 +255,142 @@ onUnmounted(() => {
 
 <template>
   <SwitchTheme></SwitchTheme>
-  <button @click="doOpenBrowser">开始打开窗口</button>,
-  <button @click="doIt">发WS({{ status }})</button>
-  <div>{{ html }}</div>
 
   <div>
-    <vxe-table border height="400" :data="tableData" size="mini" :footer-method="footerMethod" :menu-config="menuConfig" @menu-click="contextMenuClickEvent">
-      <vxe-column type="seq" width="60"></vxe-column>
-      <vxe-column field="name" title="Name"></vxe-column>
-      <vxe-column field="sex" title="Sex"></vxe-column>
-      <vxe-column field="age" title="Age"></vxe-column>
-      <vxe-column field="address" title="Address" show-overflow></vxe-column>
-    </vxe-table>
+    <img src="../assets/banner.png" alt="" srcset="">
   </div>
+  <div class="nav-container">
+    <div class="nav-btns-container">
+      <div class="nav-wrap">
+        <img src="../assets/添加.png" alt="" srcset="">
+        <span>添加</span>
+      </div>
+      <div class="nav-wrap">
+        <img src="../assets/修改.png" alt="" srcset="">
+        <span>修改</span>
+      </div>
+      <div class="nav-wrap">
+        <img src="../assets/删除.png" alt="" srcset="">
+        <span>删除</span>
+      </div>
+      <div class="nav-wrap" @click="doOpenBrowser">
+        <img src="../assets/启动浏览器.png" alt="" srcset="">
+        <span>启动浏览器</span>
+      </div>
+      <div class="nav-wrap" @click="doIt">
+        <img src="../assets/开始监控.png" alt="" srcset="">
+        <span>开始{{ status }}</span>
+      </div>
+      <div class="nav-wrap">
+        <img src="../assets/暂停.png" alt="" srcset="">
+        <span>暂停</span>
+      </div>
+      <div class="nav-wrap">
+        <img src="../assets/停止.png" alt="" srcset="">
+        <span>停止</span>
+      </div>
+      <div class="nav-wrap" @click="handleShowAbout">
+        <img src="../assets/关于.png" alt="" srcset="">
+        <span>关于</span>
+      </div>
+    </div>
+    <div class="nav-timer">
+      <span>00秒</span>
+    </div>
+  </div>
+  <div class="table-container">
+    <div class="left-table-container">
+      <vxe-table height="396" stripe :data="leftTableData" size="mini" @menu-click="contextMenuClickEvent">
+        <vxe-column field="host" title="监控中的域名"></vxe-column>
+      </vxe-table>
+    </div>
+    <div class="right-table-container">
+      <vxe-table height="396" :data="rightTableData" :row-config="{isCurrent: true, isHover: true}" size="mini" :footer-method="footerMethod" :menu-config="menuConfig" @menu-click="contextMenuClickEvent">
+        <vxe-column type="checkbox" title="" width="40"></vxe-column>
+        <vxe-column field="host" title="监控页面" show-overflow></vxe-column>
+        <vxe-column field="keyword" title="监控关键词"></vxe-column>
+        <vxe-column field="audio" title="声音文件"></vxe-column>
+        <vxe-column field="text" title="字幕文本" show-overflow></vxe-column>
+        <vxe-column field="refresh" title="刷新频率" width="80" show-overflow></vxe-column>
+        <vxe-column field="status" title="状态" width="80" show-overflow></vxe-column>
+        <vxe-column field="timer" title="倒计时" width="80" show-overflow></vxe-column>
+      </vxe-table>
+    </div>
+  </div>
+  <vxe-modal v-model="aboutVisible" :maskClosable="true" :show-close="false" width="550">
+    <template #title>
+      <span>关于</span>
+    </template>
+    <template #corner>
+      <!-- <vxe-icon name="bell-fill"></vxe-icon> -->
+      <!-- <vxe-icon name="minus"></vxe-icon> -->
+      <vxe-button type="text" status="primary" content="访问官网" @click="handleOpenUrl"></vxe-button>
+    </template>
+    <template #default>
+      <img src="../assets/关于软件.png" alt="" srcset="">
+    </template>
+    <template #footer>
+      <vxe-button @click="cancelEvent">关闭</vxe-button>
+      <vxe-button @click="cancelEvent">官网地址</vxe-button>
+      <vxe-button status="primary" @click="confirmEvent">确定</vxe-button>
+    </template>
+  </vxe-modal>
 </template>
 
-<style>
+<style lang="scss" scoped>
+.nav-container {
+  display: flex;
+  flex-direction: row;
+  background-color: rgb(240, 248, 255);
+  user-select: none;
+  cursor: default;
+  .nav-btns-container {
+    display: flex;
+    flex-direction: row;
+    padding: 5px;
+    flex: 1;
+    .nav-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 6px 10px 6px 10px;
+      border: 1px solid transparent;
+      > img {
+        width: 50px;
+        // height: 50px;
+      }
+      > span {
+        font-size: 10px;
+        font-weight: 400;
+        margin-top: 4px;
+        line-height: 1;
+      }
+      &:hover {
+        border: 1px solid #909090;
+        box-sizing: content-box;
+        border-radius: 4px;
+      }
+    }
+  }
+  .nav-timer {
+    width: 200px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(240, 248, 255, 0.8);
+  }
+}
+.table-container {
+  display: flex;
+  flex-direction: row;
+  user-select: none;
+  cursor: default;
+  .left-table-container {
+    width: 20%;
+  }
+  .right-table-container {
+    flex: 1;
+  }
+}
 </style>
