@@ -42,10 +42,17 @@ export default class WebDriver {
       context.status = 1
       return context
     }).then((context) => {
+      context.send({
+        "method": "Target.setDiscoverTargets",
+        "params": {
+          discover: true
+        }
+      })
       context.addListener((e) => {
         let isText = e['type'] === 'Text'
         if (isText) {
           let json = JSON.parse(e.data)
+          // console.log('json', json)
           if (context.tasks.has(json.id)) {
             const { resolve } = context.tasks.get(json.id)
             context.tasks.delete(json.id)
@@ -63,6 +70,9 @@ export default class WebDriver {
       return context
     })
   }
+  reconnnect () {
+
+  }
   addListener (cb) {
     this.ws.addListener(cb)
   }
@@ -76,7 +86,13 @@ export default class WebDriver {
           this.status = 0
           event()
         }
+      } else if (['Target.targetCreated', 'Target.targetInfoChanged', 'Target.targetDestroyed'].includes(name)) {
+        let json = JSON.parse(e.data)
+        if (['Target.targetCreated', 'Target.targetInfoChanged', 'Target.targetDestroyed'].includes(json.method)) {
+          event(json)
+        }
       }
+      // Target.targetInfoChanged
     })
   }
   send (params = {}) {
@@ -96,5 +112,16 @@ export default class WebDriver {
   }
   async disconnect () {
     this.ws.disconnect()
+  }
+  async newTab (url) {
+    const tid = await invoke('plugin:webdriver|new_tab', {
+      url: url
+    })
+    return tid
+  }
+  reload (tid) {
+    return invoke('plugin:webdriver|reload', {
+      tid: tid,
+    })
   }
 }

@@ -328,7 +328,7 @@ struct CustomResponse {
 
 #[tauri::command(async)]
 fn get_tab_content(
-    wstate: State<WrappedState>,
+    state: State<WrappedState>,
     tid: &str,
 ) -> Result<CustomResponse, CustomResponse> {
     let browser_tabs2 = get_lock_tabs_map();

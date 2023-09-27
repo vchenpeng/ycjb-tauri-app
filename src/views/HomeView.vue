@@ -18,7 +18,9 @@ async function doIt () {
     "params": {
       "filter": [
         { type: "browser", exclude: true },
-        { type: "tab", exclude: false }
+        { type: 'background_page', exclude: true },
+        { type: 'iframe', exclude: true },
+        { type: "page", exclude: false }
       ]
     }
   })
@@ -28,7 +30,23 @@ async function doIt () {
   let sysInfo = await browser.value.send({
     "method": "SystemInfo.getInfo"
   })
-  console.log(targets, processInfo, sysInfo)
+  leftTableData.forEach(async target => {
+    // browser.value.reload(target.targetId)
+    // console.log('load', target.sessionId)
+    await browser.value.send({
+      "method": "Page.reload",
+      "sessionId": target.sessionId,
+    })
+    let doc = await browser.value.send({
+      "method": "DOM.getDocument",
+      "sessionId": target.sessionId,
+      "params": {
+        "url": 'http://npmjs.com'
+      }
+    })
+    console.log('doc', doc)
+  })
+  // console.log(targets, processInfo, sysInfo)
   // ws.send({
   //   type: 'Text',
   //   data: {
@@ -65,22 +83,11 @@ const { doEnterOnce, startOrderTimer, stopOrderTimer } = useOrder()
 const { locked, total, pools, current, hasBaffle, doPlay } = usePlayer()
 const { queryRemoteVoicePacket, checkCurrentVoicePacket } = useVoicePacket()
 
-const temlateType = computed(() => {
-  return theme.value === 'light' ? '2' : '1'
-})
-const orderSignal = computed(() => orderStore.signal)
-const mqText = computed(() => {
-  return pools.value.map(x => {
-    return x.pickUpGoodsNo === current.value?.pickUpGoodsNo ? `<span class="item green">${x.pickUpGoodsNo}</span>` : `<span class="item">${x.pickUpGoodsNo}</span>`
-  }).join(' ')
-})
 
-let version = ref(SDK.version)
-let sn = ref(null)
-
-let leftTableData = ref([])
+let leftTableData = reactive([])
 let rightTableData = ref([
-  { id: 10001, host: 'www.baidu.com', keyword: '测试', audio: 'Man', text: 28, refresh: '1s', status: '刷新中', timer: '10' }
+  { id: 10001, host: 'www.baidu.com', keyword: '测试', audio: 'Man', text: 28, refresh: '1s', status: '刷新中', timer: '10' },
+  { id: 10001, host: 'www.baidu.com', keyword: '测试2', audio: 'Man', text: 28, refresh: '1s', status: '刷新中', timer: '10' }
 ])
 
 const menuConfig = reactive({
@@ -132,88 +139,133 @@ const footerMethod = ({ columns, data }) => {
     })
   ]
 }
-
-function querySN () {
-  service.screen.checkSN({
-    sn: '1234'
-  }).then(({ code, data }) => {
-    if (code === '100') {
-      sn.value = data
-    }
-  })
-}
-
-function doStart () {
-  return checkCurrentVoicePacket(0).then((pkg) => {
-    if (pkg) {
-      return pkg
-    } else {
-      return queryRemoteVoicePacket()
-    }
-  }).then(() => {
-    return doEnterOnce()
-  }).then(() => {
-    doPlay()
-  })
-}
-
-let html = ref(null)
 let browser = ref(null)
+let leftTable = ref(null)
 let status = computed(() => browser.value?.status)
+let queryTargetsTimer
+let wsStatus = null
 
 async function launch () {
   try {
-    // browser.value?.disconnect()
+    clearInterval(queryTargetsTimer)
     let force = browser.value === null ? false : true
     let [pid, tid, port, status] = await webdriver.launch(force)
     console.log('浏览器实例', browser, pid, tid, port, status)
     browser.value = await webdriver.connect(port)
+    wsStatus = 1
     browser.value.on('close', async (...args) => {
       console.log('ws连接关闭', args)
-      this.leftTableData.value = []
-      browser.value = await webdriver.connect(port).catch((error) => {
-        console.log('ws重新连接失败', error)
-      })
+      // leftTableData = []
+      wsStatus = 0
     })
-    // setInterval(async () => {
-    //   let status = await webdriver.getProcessStatus(pid)
-    //   console.log('status', status)
-    // }, 5000)
+    browser.value.on('Target.targetCreated', async ({ method, params }) => {
+
+
+
+      if (method === 'Target.targetDestroyed') {
+        let targetIndex = leftTableData.findIndex(x => x.targetId === params.targetId)
+        if (targetIndex >= 0) {
+          leftTableData.splice(targetIndex, 1)
+        }
+      } else {
+        let targetInfo = params?.targetInfo
+        let uri = SDK.utils.parseUrl(targetInfo.url)
+        if (targetInfo?.type === 'page' && uri.valid) {
+          let targetIndex = leftTableData.findIndex(x => x.targetId === targetInfo.targetId)
+
+
+          console.log(method, targetInfo, targetIndex, uri)
+          if (targetIndex >= 0) {
+            leftTableData.splice(targetIndex, 1, {
+              ...targetInfo,
+              host: uri.host,
+
+            })
+            // console.log('update', targetInfo, leftTableData.value)
+          } else {
+            leftTableData.push({
+              ...targetInfo,
+              host: uri.host,
+
+            })
+          }
+          browser.value.send({
+            "method": "Target.attachToTarget",
+            "params": {
+              "targetId": targetInfo.targetId,
+              "flatten": true,
+            }
+          }).then(({ result: { sessionId } }) => {
+            let curIndex = leftTableData.findIndex(x => x.targetId === targetInfo.targetId)
+            if (curIndex >= 0) {
+              leftTableData[curIndex].sessionId = sessionId
+            }
+          })
+        }
+      }
+      leftTable.value.reloadData(leftTableData)
+      // console.log('Target.targetCreated', sessionId)
+    })
+
+    setInterval(async () => {
+      if (wsStatus === 0) {
+        console.log('尝试重连')
+        browser.value = await webdriver.connect(port).catch((error) => {
+          console.log('ws重新连接失败', error)
+        })
+        wsStatus = 1
+        let json = await getTargets()
+        console.log('new json', json)
+      }
+    }, 1000)
+    // browser.value.on('Target.attachedToTarget', (params) => {
+    //   let sessionId = params.sessionId
+    //   // let a = params.targetInfo
+    //   browser.value.send({
+    //     "method": "Target.attachToTarget",
+    //     "params": {
+    //       "targetId": json.parmas.targetInfo.targetId,
+    //       "flatten": true,
+    //     }
+    //   })
+    // })
+    // let newTabTid = await browser.value.newTab('https://www.baidu.com')
+    // console.log('newTabTid', newTabTid)
+    queryTargetsTimer = setInterval(async () => {
+      let json = await getTargets()
+      leftTableData = SDK._.chain(json.result.targetInfos || []).map(item => {
+        let uri = SDK.utils.parseUrl(item.url)
+        return {
+          ...item,
+          uri: uri
+        }
+      }).filter(item => {
+        return item.uri.valid
+      }).map(item => {
+        return {
+          host: item.uri.host
+        }
+      }).uniqBy('host').value()
+      // console.log(now, leftTableData)
+    }, 50000000)
   }
   catch (error) {
     console.error(error)
   }
 }
-let timer
-async function doOpenBrowser () {
-  clearInterval(timer)
+// 打开浏览器
+async function handleOpenBrowser () {
+  // 检测是否启动过浏览器，同时ws连接正常
   launch()
-  timer = setInterval(async () => {
-    let now = SDK.dayjs().format('HH:mm:ss')
-    let json = await getTargets()
-    leftTableData.value = SDK._.chain(json.result.targetInfos || []).map(item => {
-      let uri = SDK.utils.parseUrl(item.url)
-      return {
-        ...item,
-        uri: uri
-      }
-    }).filter(item => {
-      return item.uri.valid
-    }).map(item => {
-      return {
-        host: item.uri.host
-      }
-    }).uniqBy('host').value()
-    console.log(now, leftTableData.value)
-  }, 1000)
 }
 
 function handleOpenUrl () {
   window.open('https://www.ycjinbiao.com/', null)
 }
 
-async function getTargets () {
-  let targets = await browser.value.send({
+// 获取正在检测的targets
+function getTargets () {
+  return browser.value.send({
     "method": "Target.getTargets",
     "params": {
       "filter": [
@@ -222,7 +274,6 @@ async function getTargets () {
       ]
     }
   })
-  return targets
 }
 
 let aboutVisible = ref(false)
@@ -230,26 +281,15 @@ function handleShowAbout () {
   aboutVisible.value = true
 }
 
-// querySN()
-
-// 监控是否存在新订单，如果有说明是播放中断之后，尝试唤醒（此方法不会触发播放器同一时刻多个号同时叫号的原则）
-watch([orderSignal, total], ([w1, w2]) => {
-  if (w1 && w2 === 0) {
-    console.log('watch doEnterOnce')
-    Promise.resolve().then(doEnterOnce).then(() => doPlay())
-  }
-})
-
 onMounted(() => {
-  // doStart()
-  // startOrderTimer(6000)
+  // 加载配置项
 })
 
 onBeforeUnmount(() => {
 
 })
 onUnmounted(() => {
-  stopOrderTimer()
+
 })
 
 </script>
@@ -258,7 +298,7 @@ onUnmounted(() => {
   <SwitchTheme></SwitchTheme>
 
   <div>
-    <img src="../assets/banner.png" alt="" srcset="">
+    <!-- <img src="../assets/banner.png" alt="" srcset=""> -->
   </div>
   <div class="nav-container">
     <div class="nav-btns-container">
@@ -274,7 +314,7 @@ onUnmounted(() => {
         <img src="../assets/删除.png" alt="" srcset="">
         <span>删除</span>
       </vxe-button>
-      <vxe-button class="nav-wrap" type="text" @click="doOpenBrowser">
+      <vxe-button class="nav-wrap" type="text" @click="handleOpenBrowser">
         <img src="../assets/启动浏览器.png" alt="" srcset="">
         <span>启动浏览器</span>
       </vxe-button>
@@ -299,10 +339,13 @@ onUnmounted(() => {
       <span>00秒</span>
     </div>
   </div>
+  <!-- {{ leftTableData }} -->
   <div class="table-container">
     <div class="left-table-container">
-      <vxe-table height="396" stripe :data="leftTableData" size="mini" @menu-click="contextMenuClickEvent">
-        <vxe-column field="host" title="监控中的域名"></vxe-column>
+      <vxe-table ref="leftTable" height="396" :keep-source="false" stripe :data="leftTableData" size="mini" @menu-click="contextMenuClickEvent">
+        <vxe-column field="host" title="监控中的域名" v-slot="{ row }">
+          {{ row.host }}({{ row.title }})
+        </vxe-column>
       </vxe-table>
     </div>
     <div class="right-table-container">
@@ -378,7 +421,7 @@ onUnmounted(() => {
         line-height: 1;
       }
       &:hover {
-        border: 1px solid rgba(96, 98, 102, 0.3);;
+        border: 1px solid rgba(96, 98, 102, 0.3);
         box-sizing: content-box;
         cursor: default;
         span {
