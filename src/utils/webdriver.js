@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/tauri'
-import WebSocket from "./websocket.js"
+import WebSocket from './websocket.js'
+import { SDK } from '@/sdk'
 
 let msgid = 0
 function genMsgId () {
@@ -43,17 +44,17 @@ export default class WebDriver {
       return context
     }).then((context) => {
       context.send({
-        "method": "Target.setDiscoverTargets",
-        "params": {
+        method: "Target.setDiscoverTargets",
+        params: {
           discover: true
         }
       })
       context.addListener((e) => {
         let isText = e['type'] === 'Text'
         if (isText) {
-          let json = JSON.parse(e.data)
-          // console.log('json', json)
-          if (context.tasks.has(json.id)) {
+          let { target: json, valid } = SDK.utils.tryParseJSON(e.data)
+          console.log('json2', json)
+          if (valid && context.tasks.has(json.id)) {
             const { resolve } = context.tasks.get(json.id)
             context.tasks.delete(json.id)
             resolve(json)

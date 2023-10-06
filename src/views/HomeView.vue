@@ -273,6 +273,10 @@ function getTargets () {
         { type: "tab", exclude: false }
       ]
     }
+  }).then((res) => {
+    let list = res.result.targetInfos.forEach(target => {
+      
+    })
   })
 }
 
@@ -298,7 +302,7 @@ onUnmounted(() => {
   <SwitchTheme></SwitchTheme>
 
   <div>
-    <!-- <img src="../assets/banner.png" alt="" srcset=""> -->
+    <img src="../assets/banner.png" alt="" srcset="">
   </div>
   <div class="nav-container">
     <div class="nav-btns-container">
